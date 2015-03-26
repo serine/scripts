@@ -29,4 +29,4 @@ corr <- function(directory, threshold = 0) {
 	print(data.array)
 }
 
-#corr('specdata/', 5000)
+#corr('specdata/', 150)

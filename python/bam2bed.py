@@ -36,8 +36,10 @@ for i in samfile.fetch():
                     store.append(count)
                 else:
                     #print store
-                    #print ' '.join([store[0], str(int(store[2])), str(int(store[2]))])
-                    print ' '.join([store[0], str(int(store[2])), str(int(store[3]))])
+                    print ' '.join([store[0],
+                                   str(int(store[2])),
+                                   str(int(store[3]))
+                                   ])
                     count = 0
             else:
                 count += 1

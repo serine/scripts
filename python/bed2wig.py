@@ -3,7 +3,8 @@
 
 """
 
-this reads in from standard out from convert2bed.py file and further modifies to wig format
+This reads in from standard out from bin_wig.py file and further modifies to wig format, by appending Track line and
+Chromosome lines. 
 
 """
 
@@ -17,9 +18,10 @@ import sys
 
 track = 'track'
 file_type = 'type=wiggle_0'
-name = 'name=srb10-9-3polyA-positions'
+name = 'name=srb-3merged-polyA-forward'
+#name = 'name=srb-3merged-polyA-reverse'
 step = 'variableStep'
-span = 'span=50'
+span = 'span=1'
 chname = None
 ch = 'chrom=%s'
 
