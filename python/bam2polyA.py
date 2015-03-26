@@ -2,7 +2,7 @@
 
 """
 This script only output Forward OR Reverse. Need to change the flag
-on line 27
+on line 29
 
 parsers a .bam file and grabs poly(A) end positions, checks how many of those
 have been repeated and gives the depths of the repeats
@@ -24,7 +24,9 @@ for i in samfile.fetch():
 
     if i.has_tag('AA'):
         # `not` is used here to switch between forward of reverse strands
-        if not i.is_reverse:
+        # `if not` means Forward strand
+        # `if` is a reverse strand
+        if i.is_reverse:
             start = i.get_tag('AA') 
             ref_id = i.reference_id
             name = samfile.getrname(ref_id)
@@ -42,7 +44,8 @@ for i in samfile.fetch():
 
                 if store:
                     for i in iter(sorted(store.iteritems())):
-                        print last_name, i[0], i[1]
+                        if i[1] > 5:
+                            print last_name, i[0], i[1]
 
                 store = {}
                 store[start]=1
@@ -50,6 +53,7 @@ for i in samfile.fetch():
 # this output very last chromosome
 if store:
     for i in iter(sorted(store.iteritems())):
-        print last_name, i[0], i[1]
+        if [i] > 5:
+            print last_name, i[0], i[1]
 
 

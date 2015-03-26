@@ -18,8 +18,8 @@ import sys
 
 track = 'track'
 file_type = 'type=wiggle_0'
-name = 'name=srb-3merged-polyA-forward'
-#name = 'name=srb-3merged-polyA-reverse'
+#name = 'name=srb10-polyA-5-forward'
+name = 'name=srb10-polyA-5-reverse'
 step = 'variableStep'
 span = 'span=1'
 chname = None
