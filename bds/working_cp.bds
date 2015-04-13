@@ -1,0 +1,69 @@
+#
+#
+
+string fastq 
+#string GenomeIndex
+
+string fastqSplit = "$HOME/star"
+
+if( fastq.isEmpty() )  error "Usage: -fastq /path/to/fastq_reads/"
+#if( GenomeIndex.isEmpty() )  error "Usage: -GenomeIndex /path/to/GenomeIndex/"
+
+# Check that fq1 exists
+#if( !fq1.exists() ) {
+#       print("File '$fq1' does not exists!\n");
+#       exit 1
+#}
+
+#string fastqFiles = fastq.dir()
+
+#string[] fastqFileRoot = fastqFiles.split('_R\d')
+#print fastqFileRoot
+
+#for(string fq : fastqFileRoot) {
+#    print fq
+#}
+#string fastqFileRoot = fastqFiles.split('_R1')
+
+for (string fq : fastq.dir() ) {
+
+    if( fq.endsWith(".fastq.gz") ) {
+
+        string[] fastqFile = fq.split("_R1")
+        string fastqFileRoot = fastqFile[0]
+
+        if( !fastqFileRoot.endsWith(".fastq.gz") ) {
+            
+            string[] fq1 = []
+            string[] fq2 = []
+
+            fq1.push(fastqFileRoot)
+            fq1.push("R1.fastq.gz")
+
+            fq2.push(fastqFileRoot)
+            fq2.push("R2.fastq.gz")
+            #print("$fastqFileRoot\n") 
+            string read1 = fq1.join('_')
+            string read2 = fq2.join('_')
+            #print read1.path() read2.path()
+            string rr1 = read1.path()
+            string rr2 = read2.path()
+
+            task STAR --runThreadN 27 \
+                      --genomeDir ~/star/ \
+                      --outSAMtype BAM SortedByCoordinate \
+                      --outSAMattributes All \
+                      --readFilesCommand zcat \
+                      --readFilesIn rr1 rr2 \
+                      --outFileNamePrefix BigDataScript_
+            #print("$read1 $read2\n")
+            break
+        }
+    }
+     #string[] test = fq.split('_R\d')
+
+#    # string fastqFileRoot = fq.split('_R1')
+     #print("$test[0]\n")
+#     print("$fq.split('_R\d')\n" )
+#     sys fastqFileRoot
+}

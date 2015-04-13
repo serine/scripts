@@ -1,0 +1,175 @@
+#----------------------------------------------------------------------------------------------------
+#
+#  Map Reads to the reference genome
+#                                                                                
+#----------------------------------------------------------------------------------------------------
+
+#------------------------------
+#  Serine #MonashFlavour
+#------------------------------
+#
+#----------------------------------------------------------------------------------------------------
+#
+#  About STARmergeNalign.bds
+#
+#   -  takes a whole directory that contatins fastq files and maps to the reference genome
+#   -  identifies samples that span different lanes and merges then together during STAR run,
+#      outputting sigle bam file per sample.
+#   -  auto matches paired end
+#   -  creates strandedNo and strandedReverse directories under the current directory and 
+#      performce read count using htseq-count outputting results in corresponding directories.
+
+#----------------------------------------------------------------------------------------------------
+#
+#  Usage:
+#
+#  1. STAR outputs all file into the current directory i.e the directory STAR was executed from.
+#  2. The best practise is to make new directory for your STARmergeNaling.bds run and execute
+#     STARmergeNalign.bds script within that directory.
+#  
+#----------------------------------------------------------------------------------------------------
+#  Input Parametrs
+#----------------------------------------------------------------------------------------------------
+
+string fastqDir       # path to the directory with fastq file      
+string genomeIndex    # path to the directory with genome index for the coresponding species
+string gtfFile        # path to the directory with gtf file
+
+#----------------------------------------------------------------------------------------------------
+#
+# Main
+#
+#----------------------------------------------------------------------------------------------------
+
+#------------------------------
+# Sanity check
+#------------------------------
+
+if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
+if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
+
+#------------------------------
+# Map reads
+#------------------------------
+
+string[] uniqueNamesList # a list with files names, that is sorted uniquely
+string checkNameRoot
+
+#------------------------------
+# Get list of unique names
+#------------------------------
+
+for (string fq : fastqDir.dir() ) {
+ 
+     # make sure we have fastq files only
+     if ( fq.endsWith(".fastq.gz") ) {
+
+         # get the root of the file name with regex
+         string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
+         string rootName = tempRoot[0]
+
+         if ( rootName != checkNameRoot ) {
+
+             # append to the list if it isn't in the list already
+             uniqueNamesList.add(rootName)
+             checkNameRoot = rootName
+
+         }
+
+         else {
+             
+             # if in the list than just skip
+             checkNameRoot = rootName 
+
+         }
+     }
+}
+
+#------------------------------
+# Execution of STAR
+#------------------------------
+
+string[] listR1
+string[] listR2
+
+for (string uniqueName : uniqueNamesList ) {
+
+    for (string fqread : fastqDir.dirPath() ) {
+    
+        if (fqread.endsWith("fastq.gz") ) {
+        
+            string getFileIndex = fqread.lastIndexOf(uniqueName) 
+            
+            if ( getFileIndex != -1 ) {
+    
+                string getR1Index = fqread.lastIndexOf("R1") 
+                  
+                if ( getR1Index != -1 ) {
+                
+                    #print("$fqread\n")
+                    listR1.add(fqread)
+    
+                }
+
+                else {
+
+                    listR2.add(fqread)
+                }
+            }
+        }
+    }
+    string read1 = listR1.join(",")
+    string read2 = listR2.join(",")
+    #print("$read1\n $read2\n")
+
+    task STAR --runThreadN 27 \
+              --genomeDir $genomeIndex \
+              --outSAMtype BAM Unsorted \
+              --readFilesCommand zcat \
+              --readFilesIn $read1 $read2 \
+              --outFileNamePrefix $uniqueName
+
+    listR1 = []
+    listR2 = []
+   
+    wait
+}
+
+#------------------------------
+#  Beta htseq-count 
+#------------------------------
+
+string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
+#string strandedNo = "strandedNo"
+string strandedReverse = "strandedReverse"
+
+#if( !strandedNo.exists() ) {
+#
+#    strandedNo.mkdir()
+#
+#}
+
+if( !strandedReverse.exists() ) {
+
+    strandedReverse.mkdir()
+}
+
+for (string bamFile : workingDir.dirPath() ) {
+
+    if( bamFile.endsWith(".bam") ) {
+
+        string[] temp = bamFile.split("/")
+        string name = temp.pop()
+        string[] temp2 = name.split('_Aligned')
+        string rootName = temp2[0]
+
+        string newFile = strandedReverse+"/"+rootName+".txt" 
+        task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
+
+    }
+}
+
+#------------------------------
+# The End
+#------------------------------

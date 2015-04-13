@@ -1,0 +1,19 @@
+
+string bamFiles # path/to/bam files
+string gtfFile
+
+if( bamFiles.isEmpty() )  error "Usage: -bamFiles /path/to/bam_files/"
+if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
+
+for (string bamFile : bamFiles.dirPath() ) {
+
+    if( bamFile.endsWith(".bam") ) {
+
+        string[] temp = bamFile.split("/")
+        string name = temp.pop()
+        string[] temp2 = name.split('_Aligned')
+        string rootName = temp2[0]
+        
+        task htseq-count -q -s no -f bam $bamFile $gtfFile > $rootName
+    }
+}

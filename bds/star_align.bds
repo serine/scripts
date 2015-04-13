@@ -1,0 +1,69 @@
+#--------------------------------------------------------------------------------
+#                                                                                                                                                                
+#  Map Reads to the reference genome                                                                                     
+#                                                                                                                                                                
+#--------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------
+#  Input Parametrs
+#--------------------------------------------------------------------------------
+
+string fastq 
+#string GenomeIndex
+#--------------------------------------------------------------------------------
+#
+# Main
+#
+#--------------------------------------------------------------------------------
+
+#-------------
+# Sanity check
+#-------------
+
+if( fastq.isEmpty() )  error "Usage: -fastq /path/to/fastq_reads/"
+#if( GenomeIndex.isEmpty() )  error "Usage: -GenomeIndex /path/to/GenomeIndex/"
+#
+#-------------
+# Map reads
+#-------------
+
+
+for (string fq : fastq.dirPath() ) {
+
+        if( fq.endsWith(".fastq.gz") ) {
+
+                string[] fastqFile = fq.split("_R1")
+                string fastqFileRoot = fastqFile[0]
+
+                if( !fastqFileRoot.endsWith(".fastq.gz") ) {
+
+                        string[] t = fastqFileRoot.split("/")
+                        string FilePreFix = t.pop()+'_'
+                        
+                        string[] fq1 = []
+                        string[] fq2 = []
+
+                        fq1.push(fastqFileRoot)
+                        fq1.push("R1.fastq.gz")
+
+                        fq2.push(fastqFileRoot)
+                        fq2.push("R2.fastq.gz")
+
+                        string read1 = fq1.join('_')
+                        string read2 = fq2.join('_')
+
+                        task STAR --runThreadN 27 \
+                                          --genomeDir ~/star/ \
+                                          --outSAMtype BAM SortedByCoordinate \
+                                          --outSAMattributes All \
+                                          --readFilesCommand zcat \
+                                          --readFilesIn $read1 $read2 \
+                                          --outFileNamePrefix $FilePreFix
+                        wait 
+
+                        fq1 = []
+                        fq2 = []
+
+                }
+        }
+}
