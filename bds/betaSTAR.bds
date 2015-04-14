@@ -34,6 +34,9 @@
 string fastqDir       # path to the directory with fastq file      
 string genomeIndex    # path to the directory with genome index for the coresponding species
 string gtfFile        # path to the directory with gtf file
+string readCount      # Select if readCount is required using htseq-count 
+string readSort       # Select if read need to be sorted using samtools 
+string rnaseQC         # Select if would like to run RNA-SeQC tool
 
 #----------------------------------------------------------------------------------------------------
 #
@@ -49,6 +52,30 @@ if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
 if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
 if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
 
+if( readCount.isEmpty() ) readCount = "no"
+
+if( !readCount.isEmpty() ) {
+     
+    #print("$readCount\n")
+    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -readCount yes or no"
+
+}
+
+if( readSort.isEmpty() ) readSort = "no"
+
+if( !readSort.isEmpty() ) {
+
+    if( ( readSort != "yes" ) && ( readSort != "no" ) ) error "Usage: -readSort yes or no"
+
+}
+
+if( rnaseQC.isEmpty() ) rnaseQC = "no"
+
+if( !rnaseQC.isEmpty() ) {
+
+    if( ( rnaseQC != "yes" ) && ( rnaseQC != "no" ) ) error "Usage: -rnaSeQC yes or no"
+
+}
 #------------------------------
 # Map reads
 #------------------------------
@@ -61,7 +88,6 @@ string checkNameRoot
 #------------------------------
 
 for (string fq : fastqDir.dir() ) {
- 
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
@@ -92,6 +118,7 @@ for (string fq : fastqDir.dir() ) {
 
 string[] listR1
 string[] listR2
+string[] laneList
 
 for (string uniqueName : uniqueNamesList ) {
 
@@ -104,11 +131,17 @@ for (string uniqueName : uniqueNamesList ) {
             if ( getFileIndex != -1 ) {
     
                 string getR1Index = fqread.lastIndexOf("R1") 
-                  
+
                 if ( getR1Index != -1 ) {
                 
                     #print("$fqread\n")
+                    string[] laneN1 = fqread.split(uniqueName+"_")
+                    string laneN2 = laneN1.pop()
+                    string[] laneN3 = laneN2.split("_R1")
+                    string laneN4 = laneN3[0]
+
                     listR1.add(fqread)
+                    laneList.add(laneN4)
     
                 }
 
@@ -121,87 +154,106 @@ for (string uniqueName : uniqueNamesList ) {
     }
     string read1 = listR1.join(",")
     string read2 = listR2.join(",")
+    string laneNumber = laneList.join(",")
     string preFix = uniqueName+"_"
     #print("$read1\n $read2\n")
 
-    task STAR --runThreadN 27 \
+    #task echo "this is star part"
+    task STAR --runThreadN 3 \
               --genomeDir $genomeIndex \
               --outSAMtype BAM Unsorted \
+              --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MySeq SM:t1 \
               --readFilesCommand zcat \
               --readFilesIn $read1 $read2 \
               --outFileNamePrefix $preFix
 
     listR1 = []
     listR2 = []
+    laneList = []
    
-    wait
+    #wait
+    exit
 }
+
+string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
 
 #------------------------------
 #  Beta htseq-count 
 #------------------------------
 
-string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
-
-#string strandedNo = "strandedNo"
-string strandedReverse = "strandedReverse"
-
-#if( !strandedNo.exists() ) {
-#
-#    strandedNo.mkdir()
-#
-#}
-
-if( !strandedReverse.exists() ) {
-
-    strandedReverse.mkdir()
-}
-
-for (string bamFile : workingDir.dirPath() ) {
-
-    if( bamFile.endsWith(".bam") ) {
-
-        string[] temp = bamFile.split("/")
-        string name = temp.pop()
-        string[] temp2 = name.split('_Aligned')
-        string rootName = temp2[0]
-
-        string newFile = strandedReverse+"/"+rootName+".txt" 
-        #task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
-        task echo "this is htseq-count part"
-
+if ( readCount == "yes" ) {
+    
+    #string strandedNo = "strandedNo"
+    string strandedReverse = "strandedReverse"
+    
+    #if( !strandedNo.exists() ) {
+    #
+    #    strandedNo.mkdir()
+    #
+    #}
+    
+    if( !strandedReverse.exists() ) {
+    
+        strandedReverse.mkdir()
+    }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string newFile = strandedReverse+"/"+rootName+".txt" 
+            #task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
+            task echo "this is htseq-count part"
+    
+        }
     }
 }
-
 
 #------------------------------
 # Beta samtools
 #------------------------------
 
-string sortedBamFiles = "sortedBamFiles"
+if (readSort == "yes" ) {
 
-if( !sortedBamFiles.exists() ) {
-
-    sortedBamFiles.mkdir()
-}
-
-for (string bamFile : workingDir.dirPath() ) {
-
-    if( bamFile.endsWith(".bam") ) {
-
-        string[] temp = bamFile.split("/")
-        string name = temp.pop()
-        string[] temp2 = name.split('_Aligned')
-        string rootName = temp2[0]
-        string sortedName = sortedBamFiles+"/"+rootName+"_sorted"
-        string 
-
-        task samtools sort -@ 10 $bamFile $sortedName
+    string sortedBamFiles = "sortedBamFiles"
+    
+    if( !sortedBamFiles.exists() ) {
+    
+        sortedBamFiles.mkdir()
     }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+            string sortedName = sortedBamFiles+"/"+rootName+"_sorted"
+    
+            task samtools sort -@ 10 $bamFile $sortedName
+        }
+    
+        wait
+    }
+}
 
-    wait
+#------------------------------
+# Beta RNA-SeQC
+#------------------------------
+
+if ( rnaseQC == "yes" ) {
+
+    print("Hi\n")
 
 }
+
 #------------------------------
 # The End
 #------------------------------
