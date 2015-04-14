@@ -73,6 +73,7 @@ if( pairEnd )   fq2s = splitFastq(fq2, "$tmpDir/fq2" )
 #---
 string[] bams 
 
+
 if( pairEnd ) {
         # Map each pair of fastq and get a list of sorted BAMs
         for( int i=0 ; i < fq1s.size() ; i++ ) {
