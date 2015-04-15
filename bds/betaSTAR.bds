@@ -12,6 +12,7 @@
 #
 #  About STARmergeNalign.bds
 #
+#   -  run -h, -help, --help to get more help of the command line arguments
 #   -  takes a whole directory that contatins fastq files and maps to the reference genome
 #   -  identifies samples that span different lanes and merges then together during STAR run,
 #      outputting sigle bam file per sample.
@@ -31,12 +32,12 @@
 #  Input Parametrs
 #----------------------------------------------------------------------------------------------------
 
-string fastqDir       # path to the directory with fastq file      
-string genomeIndex    # path to the directory with genome index for the coresponding species
-string gtfFile        # path to the directory with gtf file
-string readCount      # Select if readCount is required using htseq-count 
-string readSort       # Select if read need to be sorted using samtools 
-string rnaseQC         # Select if would like to run RNA-SeQC tool
+string fastqDir       help path to the directory with fastq file       
+string genomeIndex    help path to the directory with genome index for the coresponding species
+string gtfFile        help path to the directory with gtf file
+string readCount      help Select if read counts is required using htseq-count 
+string readSort       help Select if reads need to be sorted using samtools 
+string rnaseQC        help Select if would like to run RNA-SeQC tool
 
 #----------------------------------------------------------------------------------------------------
 #

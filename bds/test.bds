@@ -1,0 +1,5 @@
+
+bool flag
+string docs = "what ever i want to type here"
+
+if ( flag ) print("$docs\n")
