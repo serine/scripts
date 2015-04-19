@@ -1,3 +1,5 @@
+#! /usr/bin/env bds
+
 #----------------------------------------------------------------------------------------------------
 #
 #  Map Reads to the reference genome
@@ -164,6 +166,7 @@ for (string uniqueName : uniqueNamesList ) {
               --genomeDir $genomeIndex \
               --outSAMtype BAM Unsorted \
               --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MySeq SM:t1 \
+              --outSAMunmapped Within \
               --readFilesCommand zcat \
               --readFilesIn $read1 $read2 \
               --outFileNamePrefix $preFix
