@@ -40,7 +40,7 @@ string gtfFile        help path to the directory with gtf file
 string readCount      help Select if read counts is required using htseq-count 
 string readSort       help Select if reads need to be sorted using samtools 
 string rnaseQC        help Select if would like to run RNA-SeQC tool
-
+string betaReadCount  help Indicate yes or no
 #----------------------------------------------------------------------------------------------------
 #
 # Main
@@ -58,7 +58,7 @@ if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
 if( readCount.isEmpty() ) readCount = "no"
 
 if( !readCount.isEmpty() ) {
-     
+
     #print("$readCount\n")
     if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -readCount yes or no"
 
@@ -161,28 +161,27 @@ for (string uniqueName : uniqueNamesList ) {
     string preFix = uniqueName+"_"
     #print("$read1\n $read2\n")
 
-    #task echo "this is star part"
-    task STAR --runThreadN 3 \
-              --genomeDir $genomeIndex \
-              --outSAMtype BAM Unsorted \
-              --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MySeq SM:t1 \
-              --outSAMunmapped Within \
-              --readFilesCommand zcat \
-              --readFilesIn $read1 $read2 \
-              --outFileNamePrefix $preFix
+    task echo "this is star part"
+    #task STAR --runThreadN 3 \
+    #          --genomeDir $genomeIndex \
+    #          --outSAMtype BAM Unsorted \
+    #          --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MySeq SM:t1 \
+    #          --outSAMunmapped Within \
+    #          --readFilesCommand zcat \
+    #          --readFilesIn $read1 $read2 \
+    #          --outFileNamePrefix $preFix
 
     listR1 = []
     listR2 = []
     laneList = []
    
     #wait
-    exit
 }
 
 string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
 
 #------------------------------
-#  Beta htseq-count 
+# htseq-count 
 #------------------------------
 
 if ( readCount == "yes" ) {
@@ -217,6 +216,44 @@ if ( readCount == "yes" ) {
         }
     }
 }
+
+#------------------------------
+# featureCount
+#------------------------------
+
+if ( betaReadCount == "yes" ) {
+    
+    string strandedNo = "strandedNo"
+    string strandedReverse = "strandedReverse"
+    
+    if( !strandedNo.exists() ) {
+        strandedNo.mkdir()
+    }
+    
+    if( !strandedReverse.exists() ) {
+        strandedReverse.mkdir()
+    }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string reverseStrand = strandedReverse+"/"+rootName+".txt" 
+            string noStrand = strandedNo+"/"+rootName+".txt" 
+            #task featureCount-count -q -s reverse -f bam $bamFile $gtfFile > $nqqqoStrand
+            #task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $noStrand
+            task echo "this is task onea"; \
+                 echo "this is task two"
+    
+        }
+    }
+}
+
 
 #------------------------------
 # Beta samtools
