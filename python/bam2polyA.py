@@ -16,6 +16,7 @@ import sys, re, pysam
 
 samfile = pysam.AlignmentFile(sys.argv[1], 'rb')
 
+threshold = 5
 check = ''
 store = {}
 last_name = ''
@@ -26,7 +27,7 @@ for i in samfile.fetch():
         # `not` is used here to switch between forward of reverse strands
         # `if not` means Forward strand
         # `if` is a reverse strand
-        if i.is_reverse:
+        if not i.is_reverse:
             start = i.get_tag('AA') 
             ref_id = i.reference_id
             name = samfile.getrname(ref_id)
@@ -44,7 +45,7 @@ for i in samfile.fetch():
 
                 if store:
                     for i in iter(sorted(store.iteritems())):
-                        if i[1] > 5:
+                        if i[1] > threshold:
                             print last_name, i[0], i[1]
 
                 store = {}
@@ -53,7 +54,5 @@ for i in samfile.fetch():
 # this output very last chromosome
 if store:
     for i in iter(sorted(store.iteritems())):
-        if [i] > 5:
+        if [i] > threshold:
             print last_name, i[0], i[1]
-
-

@@ -40,7 +40,8 @@ string gtfFile        help path to the directory with gtf file
 string readCount      help Select if read counts is required using htseq-count 
 string readSort       help Select if reads need to be sorted using samtools 
 string rnaseQC        help Select if would like to run RNA-SeQC tool
-string betaReadCount  help Indicate yes or no
+string count          help Indicate yes or no
+string fastaRef       help path to the reference fasta file only supply if you are going to run rnaseQC
 #----------------------------------------------------------------------------------------------------
 #
 # Main
@@ -60,10 +61,18 @@ if( readCount.isEmpty() ) readCount = "no"
 if( !readCount.isEmpty() ) {
 
     #print("$readCount\n")
-    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -readCount yes or no"
+    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -count yes or no"
 
 }
 
+if( count.isEmpty() ) count = "no"
+
+if( !count.isEmpty() ) {
+
+    #print("$readCount\n")
+    if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
+
+}
 if( readSort.isEmpty() ) readSort = "no"
 
 if( !readSort.isEmpty() ) {
@@ -161,21 +170,20 @@ for (string uniqueName : uniqueNamesList ) {
     string preFix = uniqueName+"_"
     #print("$read1\n $read2\n")
 
-    task echo "this is star part"
-    #task STAR --runThreadN 3 \
-    #          --genomeDir $genomeIndex \
-    #          --outSAMtype BAM Unsorted \
-    #          --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MySeq SM:t1 \
-    #          --outSAMunmapped Within \
-    #          --readFilesCommand zcat \
-    #          --readFilesIn $read1 $read2 \
-    #          --outFileNamePrefix $preFix
+    task STAR --runThreadN 3 \
+               --genomeDir $genomeIndex \
+               --outSAMtype BAM Unsorted \
+               --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MiSeq SM:t1 \
+               --outSAMunmapped Within \
+               --readFilesCommand zcat \
+               --readFilesIn $read1 $read2 \
+               --outFileNamePrefix $preFix
 
     listR1 = []
     listR2 = []
     laneList = []
    
-    #wait
+    wait
 }
 
 string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
@@ -186,17 +194,9 @@ string workingDir = "$PWD"                 # gets the current directory to which
 
 if ( readCount == "yes" ) {
     
-    #string strandedNo = "strandedNo"
     string strandedReverse = "strandedReverse"
     
-    #if( !strandedNo.exists() ) {
-    #
-    #    strandedNo.mkdir()
-    #
-    #}
-    
     if( !strandedReverse.exists() ) {
-    
         strandedReverse.mkdir()
     }
     
@@ -221,7 +221,7 @@ if ( readCount == "yes" ) {
 # featureCount
 #------------------------------
 
-if ( betaReadCount == "yes" ) {
+if ( count == "yes" ) {
     
     string strandedNo = "strandedNo"
     string strandedReverse = "strandedReverse"
@@ -229,7 +229,25 @@ if ( betaReadCount == "yes" ) {
     if( !strandedNo.exists() ) {
         strandedNo.mkdir()
     }
+
+    for (string bamFile : workingDir.dirPath() ) {
     
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string noStrand = strandedNo+"/"+rootName+".txt" 
+
+            task featureCounts -a $gtfFile -o $noStrand $bamFile -s 0
+    
+        }
+    }
+
+    wait
+
     if( !strandedReverse.exists() ) {
         strandedReverse.mkdir()
     }
@@ -246,11 +264,7 @@ if ( betaReadCount == "yes" ) {
             string reverseStrand = strandedReverse+"/"+rootName+".txt" 
             string noStrand = strandedNo+"/"+rootName+".txt" 
 
-            task featureCounts -a $gtfFile -o $reverseStrand $bamFile; \
-                 featureCounts -a $gtfFile -o $noStrand $bamFile
-
-           # task echo "this is task onea"; \
-           #      echo "this is task two"
+            task featureCounts -a $gtfFile -o $reverseStrand $bamFile -s 2
     
         }
     }
@@ -258,18 +272,33 @@ if ( betaReadCount == "yes" ) {
 
 
 #------------------------------
-# Beta samtools
+# piacrd secssion
+# bam file preprocessing 
+# for RNA-SeQC run
 #------------------------------
 
 if (readSort == "yes" ) {
 
-    string sortedBamFiles = "sortedBamFiles"
+    string preqcBamFiles = "preqcBamFiles"
     
-    if( !sortedBamFiles.exists() ) {
+    if( !preqcBamFiles.exists() ) {
     
-        sortedBamFiles.mkdir()
+        preqcBamFiles.mkdir()
     }
-    
+
+    string canonicalPath = fastaRef.path()
+    string[] tmpPath1 = canonicalPath.split("/")
+    string toChuck = tmpPath1.pop()
+    string tmpPath2 = tmpPath1.join("/")
+
+    string tempRef = fastaRef.baseName(".fa")
+
+    string nameRef = tmpPath2+"/"+tempRef+".dict"
+
+    sys picard CreateSequenceDictionary REFERENCE=$fastaRef OUTPUT=$nameRef
+
+    # loop over the directory and submit all bam files for sorting
+
     for (string bamFile : workingDir.dirPath() ) {
     
         if( bamFile.endsWith(".bam") ) {
@@ -278,12 +307,63 @@ if (readSort == "yes" ) {
             string name = temp.pop()
             string[] temp2 = name.split('_Aligned')
             string rootName = temp2[0]
-            string sortedName = sortedBamFiles+"/"+rootName+"_sorted"
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted.bam"
     
-            task samtools sort -@ 10 $bamFile $sortedName
+            task picar SortSam TMP_DIR=tmp/ \
+                                INPUT=$bamFile \
+                                OUTPUT=sortedName \
+                                SORT_ORDER=coordinate
         }
+    }
     
-        wait
+    wait
+
+    string preqcDir = "$PWD"+preqcBamFiles
+
+    # waint until all bam files in the directory were sorted
+    # then reorder all sorted bam files
+
+    for (string bamFile : preqcDir.dirPath() ) {
+
+        if( bamFile.endsWith("sorted.bam") ) {
+    string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_sorted')
+            print("$temp2\n")
+            string rootName = temp2[0]
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered.bam"
+
+            task picard ReorderSam TMP_DIR=tmp/ \
+                                    INPUT=$bamFile \
+                                    OUTPUT=$sortedName \
+                                    REFERENCE=$fastaRef
+
+        }
+    }
+
+    wait 
+
+    # wait until all bam fiels in the direcotory were reordered
+    # then mark duplicates
+
+    for (string bamFile : preqcDir.dirPath() ) {
+    
+        if( bamFile.endsWith("reordered.bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_sorted')
+            string rootName = temp2[0]
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.bam"
+            string metricsName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.metrics"
+
+            task picard ReorderSam TMP_DIR=tmp/ \
+                                    CREATE_INDEX true \
+                                    INPUT=$bamFile \
+                                    OUTPUT=$sortedName \
+                                    METRICS_FILE=$metricsName
+
+        }
     }
 }
 
