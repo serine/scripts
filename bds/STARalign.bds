@@ -245,10 +245,12 @@ if ( betaReadCount == "yes" ) {
     
             string reverseStrand = strandedReverse+"/"+rootName+".txt" 
             string noStrand = strandedNo+"/"+rootName+".txt" 
-            #task featureCount-count -q -s reverse -f bam $bamFile $gtfFile > $nqqqoStrand
-            #task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $noStrand
-            task echo "this is task onea"; \
-                 echo "this is task two"
+
+            task featureCounts -a $gtfFile -o $reverseStrand $bamFile; \
+                 featureCounts -a $gtfFile -o $noStrand $bamFile
+
+           # task echo "this is task onea"; \
+           #      echo "this is task two"
     
         }
     }
