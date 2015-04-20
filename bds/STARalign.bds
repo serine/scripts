@@ -104,6 +104,7 @@ for (string fq : fastqDir.dir() ) {
      if ( fq.endsWith(".fastq.gz") ) {
 
          # get the root of the file name with regex
+
          string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
          string rootName = tempRoot[0]
 
@@ -127,6 +128,13 @@ for (string fq : fastqDir.dir() ) {
 #------------------------------
 # Execution of STAR
 #------------------------------
+
+
+string fastqWorkingDir = "$PWD"
+string[] tmp1 = fastqWorkingDir.split("/")
+string tmp2 = tmp1.pop() 
+string[] tmp3 = tmp2.split("AGRF_CAGRF")
+string samplesName = tmp3.pop()
 
 string[] listR1
 string[] listR2
@@ -170,10 +178,10 @@ for (string uniqueName : uniqueNamesList ) {
     string preFix = uniqueName+"_"
     #print("$read1\n $read2\n")
 
-    task STAR --runThreadN 3 \
+    task STAR --runThreadN 30 \
                --genomeDir $genomeIndex \
                --outSAMtype BAM Unsorted \
-               --outSAMattrRGline ID:$laneNumber CN:AGRF DS:hey PL:ILLUMINA PM:MiSeq SM:t1 \
+               --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$samplesName \
                --outSAMunmapped Within \
                --readFilesCommand zcat \
                --readFilesIn $read1 $read2 \

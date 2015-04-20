@@ -1,8 +1,8 @@
 string checkPath 
 
-string temp = checkPath.path()
-string[] tt = temp.split("/")
-string chuck = tt.pop()
-string hh = tt.join("/")
-string last = hh+"/"+"wahteeve"
-print("$last\n")
+string temp = "$PWD"
+string[] tmp2 = temp.split("/")
+string tmp3 = tmp2.pop() 
+string[] tmp4 = tmp3.split("AGRF_CAGRF")
+string tmp5 = tmp4.pop()
+print("$tmp5\n")
