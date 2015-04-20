@@ -18,8 +18,8 @@ import sys
 
 track = 'track'
 file_type = 'type=wiggle_0'
-#name = 'name=srb10-polyA-5-forward'
-name = 'name=srb10-polyA-5-reverse'
+#name = 'Verma-Gaur et al., PAS forward'
+name = "Verma-Gaur et al., PAS reverse"
 step = 'variableStep'
 span = 'span=1'
 chname = None
