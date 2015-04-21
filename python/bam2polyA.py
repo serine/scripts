@@ -27,7 +27,7 @@ for i in samfile.fetch():
         # `not` is used here to switch between forward of reverse strands
         # `if not` means Forward strand
         # `if` is a reverse strand
-        if not i.is_reverse:
+        if i.is_reverse:
             start = i.get_tag('AA') 
             ref_id = i.reference_id
             name = samfile.getrname(ref_id)

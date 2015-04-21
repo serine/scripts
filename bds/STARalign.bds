@@ -317,7 +317,7 @@ if (readSort == "yes" ) {
             string rootName = temp2[0]
             string sortedName = preqcBamFiles+"/"+rootName+"_sorted.bam"
     
-            task picar SortSam TMP_DIR=tmp/ \
+            task picard SortSam TMP_DIR=tmp/ \
                                 INPUT=$bamFile \
                                 OUTPUT=sortedName \
                                 SORT_ORDER=coordinate
