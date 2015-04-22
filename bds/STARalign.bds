@@ -56,38 +56,40 @@ if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
 if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
 if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
 
+#----------------------------------------------------------------------------------------------------
+
 if( readCount.isEmpty() ) readCount = "no"
 
 if( !readCount.isEmpty() ) {
-
-    #print("$readCount\n")
-    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -count yes or no"
-
+    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -readCount yes or no"
 }
+
+#----------------------------------------------------------------------------------------------------
 
 if( count.isEmpty() ) count = "no"
 
 if( !count.isEmpty() ) {
-
-    #print("$readCount\n")
     if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
-
 }
+
+#----------------------------------------------------------------------------------------------------
+
 if( readSort.isEmpty() ) readSort = "no"
 
 if( !readSort.isEmpty() ) {
-
     if( ( readSort != "yes" ) && ( readSort != "no" ) ) error "Usage: -readSort yes or no"
-
 }
+
+#----------------------------------------------------------------------------------------------------
 
 if( rnaseQC.isEmpty() ) rnaseQC = "no"
 
 if( !rnaseQC.isEmpty() ) {
-
     if( ( rnaseQC != "yes" ) && ( rnaseQC != "no" ) ) error "Usage: -rnaSeQC yes or no"
-
 }
+
+#----------------------------------------------------------------------------------------------------
+
 #------------------------------
 # Map reads
 #------------------------------
@@ -129,69 +131,99 @@ for (string fq : fastqDir.dir() ) {
 # Execution of STAR
 #------------------------------
 
+#----------------------------------------------------------------------
+# Warning ! unsed code here. migh tneed to be removed
+#----------------------------------------------------------------------
+#string fastqWorkingDir = "$PWD"
+#
+#string[] tmp1 = fastqWorkingDir.split("/")
+#string tmp2 = tmp1.pop() 
+#string[] tmp3 = tmp2.split("AGRF_CAGRF")
+#
+## SM field in the bam file is populated with samplesName value
+## SM i.e Sample. "Use pool name where a pool is being sequenced."
+#
+#string samplesName = tmp3.pop()                    
+#----------------------------------------------------------------------
+
+#------------------------------
+# Sanity check if pwd hasn't
+# got any bam files in it
+#------------------------------
 
 string fastqWorkingDir = "$PWD"
-string[] tmp1 = fastqWorkingDir.split("/")
-string tmp2 = tmp1.pop() 
-string[] tmp3 = tmp2.split("AGRF_CAGRF")
-string samplesName = tmp3.pop()
 
-string[] listR1
-string[] listR2
-string[] laneList
+string[] checkBamList
 
-for (string uniqueName : uniqueNamesList ) {
+for ( string checkBam : fastqWorkingDir.dirPath() ) {
+    if ( checkBam.endsWith(".bam") ) {
+        checkBamList.add(checkBam)
+    }
+}
 
-    for (string fqread : fastqDir.dirPath() ) {
+if ( checkBamList.isEmpty() ) {
+
+    string[] listR1
+    string[] listR2
+    string[] laneList
     
-        if (fqread.endsWith("fastq.gz") ) {
+    for (string uniqueName : uniqueNamesList ) {
+    
+        for (string fqread : fastqDir.dirPath() ) {
         
-            string getFileIndex = fqread.lastIndexOf(uniqueName) 
+            if (fqread.endsWith("fastq.gz") ) {
             
-            if ( getFileIndex != -1 ) {
-    
-                string getR1Index = fqread.lastIndexOf("R1") 
-
-                if ( getR1Index != -1 ) {
+                string getFileIndex = fqread.lastIndexOf(uniqueName) 
                 
-                    #print("$fqread\n")
-                    string[] laneN1 = fqread.split(uniqueName+"_")
-                    string laneN2 = laneN1.pop()
-                    string[] laneN3 = laneN2.split("_R1")
-                    string laneN4 = laneN3[0]
-
-                    listR1.add(fqread)
-                    laneList.add(laneN4)
+                if ( getFileIndex != -1 ) {
+        
+                    string getR1Index = fqread.lastIndexOf("R1") 
     
-                }
-
-                else {
-
-                    listR2.add(fqread)
+                    if ( getR1Index != -1 ) {
+                    
+                        #print("$fqread\n")
+                        string[] laneN1 = fqread.split(uniqueName+"_")
+                        string laneN2 = laneN1.pop()
+                        string[] laneN3 = laneN2.split("_R1")
+                        string laneN4 = laneN3[0]
+    
+                        listR1.add(fqread)
+                        laneList.add(laneN4)
+        
+                    }
+    
+                    else {
+    
+                        listR2.add(fqread)
+                    }
                 }
             }
         }
+        string read1 = listR1.join(",")
+        string read2 = listR2.join(",")
+        string laneNumber = laneList.join(",")
+        string preFix = uniqueName+"_"
+    
+        task STAR --runThreadN 32 \
+                   --genomeDir $genomeIndex \
+                   --outSAMtype BAM Unsorted \
+                   --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$uniqueName \
+                   --outSAMunmapped Within \
+                   --readFilesCommand zcat \
+                   --readFilesIn $read1 $read2 \
+                   --outFileNamePrefix $preFix
+        
+        listR1 = []
+        listR2 = []
+        laneList = []
+       
+        wait
     }
-    string read1 = listR1.join(",")
-    string read2 = listR2.join(",")
-    string laneNumber = laneList.join(",")
-    string preFix = uniqueName+"_"
-    #print("$read1\n $read2\n")
+}
 
-    task STAR --runThreadN 30 \
-               --genomeDir $genomeIndex \
-               --outSAMtype BAM Unsorted \
-               --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$samplesName \
-               --outSAMunmapped Within \
-               --readFilesCommand zcat \
-               --readFilesIn $read1 $read2 \
-               --outFileNamePrefix $preFix
+else {
 
-    listR1 = []
-    listR2 = []
-    laneList = []
-   
-    wait
+    print("There were bam files found in the current directory BDS will skip STAR alignment and move on to the next section\n")
 }
 
 string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
@@ -218,8 +250,30 @@ if ( readCount == "yes" ) {
             string rootName = temp2[0]
     
             string newFile = strandedReverse+"/"+rootName+".txt" 
-            #task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
-            task echo "this is htseq-count part"
+            task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
+    
+        }
+    }
+    
+    wait
+
+    string strandedReverse = "strandedNo"
+
+    if( !strandedNo.exists() ) {
+        strandedNo.mkdir()
+    }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string newFile = strandedNo+"/"+rootName+".txt" 
+            task htseq-count -q -s no -f bam $bamFile $gtfFile > $newFile
     
         }
     }
@@ -228,6 +282,17 @@ if ( readCount == "yes" ) {
 #------------------------------
 # featureCount
 #------------------------------
+
+#for ( string checkIfDirs : workingDir.dir() ) {
+#   if ( (checkIfDirs == "strandedReverse") || (checkIfDirs == "strandedNo") ) {
+#       print("strandedReverse and/or strandedNo directories were identified in the current directory. This is a
+#signature of the counting step being processed. BDS will skip counting step and move on to the next step\n")
+#       exit     
+#   }
+#}
+#
+#exit
+
 
 if ( count == "yes" ) {
     
@@ -334,7 +399,8 @@ if (readSort == "yes" ) {
     for (string bamFile : preqcDir.dirPath() ) {
 
         if( bamFile.endsWith("sorted.bam") ) {
-    string[] temp = bamFile.split("/")
+
+            string[] temp = bamFile.split("/")
             string name = temp.pop()
             string[] temp2 = name.split('_sorted')
             print("$temp2\n")
@@ -342,9 +408,9 @@ if (readSort == "yes" ) {
             string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered.bam"
 
             task picard ReorderSam TMP_DIR=tmp/ \
-                                    INPUT=$bamFile \
-                                    OUTPUT=$sortedName \
-                                    REFERENCE=$fastaRef
+                                   INPUT=$bamFile \
+                                   OUTPUT=$sortedName \
+                                   REFERENCE=$fastaRef
 
         }
     }
@@ -365,11 +431,11 @@ if (readSort == "yes" ) {
             string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.bam"
             string metricsName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.metrics"
 
-            task picard ReorderSam TMP_DIR=tmp/ \
-                                    CREATE_INDEX true \
-                                    INPUT=$bamFile \
-                                    OUTPUT=$sortedName \
-                                    METRICS_FILE=$metricsName
+            task picard MarkDuplicates TMP_DIR=tmp/ \
+                                       CREATE_INDEX=true \
+                                       INPUT=$bamFile \
+                                       OUTPUT=$sortedName \
+                                       METRICS_FILE=$metricsName
 
         }
     }

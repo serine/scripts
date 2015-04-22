@@ -1,8 +1,8 @@
-string checkPath 
+string workingDir = "$PWD"
 
-string temp = "$PWD"
-string[] tmp2 = temp.split("/")
-string tmp3 = tmp2.pop() 
-string[] tmp4 = tmp3.split("AGRF_CAGRF")
-string tmp5 = tmp4.pop()
-print("$tmp5\n")
+for ( string checkFile : workingDir.dirPath() ) {
+
+    if ( checkFile.endsWith(".bam") ) warning "Checking if working works"
+    
+    print("looks like it has gone pass the warning message\n")
+}
