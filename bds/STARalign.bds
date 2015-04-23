@@ -1,5 +1,4 @@
 #! /usr/bin/env bds
-
 #----------------------------------------------------------------------------------------------------
 #
 #  Map Reads to the reference genome
@@ -54,12 +53,11 @@ string rnaseQC        help Select if would like to run RNA-SeQC tool
 # Sanity check
 #------------------------------
 
-if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
-
 #----------------------------------------------------------------------------------------------------
 
 if( !star.isEmpty() ) {
 
+    check4input = "populated"   
     if( ( star != "yes" ) && ( star != "no" ) ) error "Usage: -star yes or no"
     if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
     if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
@@ -69,6 +67,7 @@ if( !star.isEmpty() ) {
 
 if( !count.isEmpty() ) {
 
+    check4input = "populated"   
     if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
     if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
 }
@@ -76,6 +75,8 @@ if( !count.isEmpty() ) {
 #----------------------------------------------------------------------------------------------------
 
 if( !prePro.isEmpty() ) {
+
+    check4input = "populated"   
     if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
     if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
 }
@@ -85,6 +86,8 @@ if( !prePro.isEmpty() ) {
 if( !rnaseQC.isEmpty() ) {
     if( ( rnaseQC != "yes" ) && ( rnaseQC != "no" ) ) error "Usage: -rnaSeQC yes or no"
 }
+
+if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
 
 #----------------------------------------------------------------------------------------------------
 
@@ -108,7 +111,7 @@ for (string fq : fastqDir.dir() ) {
          string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
          string rootName = tempRoot[0]
 
-         if ( rootName != checkNameRoot ) {
+     if ( rootName != checkNameRoot ) {
 
              # append to the list if it isn't in the list already
              uniqueNamesList.add(rootName)
@@ -222,7 +225,7 @@ if ( prePro == "yes" ) {
             string[] temp2 = name.split('_Aligned')
             string rootName = temp2[0]
             string sortedName = preqcBamFiles+"/"+rootName+"_sorted.bam"
-    
+
             task picard SortSam TMP_DIR=tmp/ \
                                 INPUT=$bamFile \
                                 OUTPUT=$sortedName \
@@ -232,7 +235,7 @@ if ( prePro == "yes" ) {
     
     wait
 
-    string preqcDir = "$PWD"+preqcBamFiles
+    string preqcDir = "$PWD"+"/"+preqcBamFiles
 
     # waint until all bam files in the directory were sorted
     # then reorder all sorted bam files
@@ -244,7 +247,6 @@ if ( prePro == "yes" ) {
             string[] temp = bamFile.split("/")
             string name = temp.pop()
             string[] temp2 = name.split('_sorted')
-            print("$temp2\n")
             string rootName = temp2[0]
             string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered.bam"
 
@@ -290,6 +292,20 @@ if ( prePro == "yes" ) {
 #------------------------------
 
 if ( rnaseQC == "yes" ) {
+
+    #sys module load RNA-SeQC
+
+    #string rnaseqcDir = "rnaseqcDir"
+
+    #if ( !rnaseqcDir.exists() ) {
+    #   rnaseqcDir.mkdir()
+    #}
+    ##outputDir = rna-seqcDir+"/"+
+
+    #for ( string markedBam : preqcDir.dirPath() ) {
+    #   print("$markedBam\n")
+    ##  task rna-seqc -s 
+    #}
 
     print("Hi\n")
 

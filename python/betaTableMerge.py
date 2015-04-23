@@ -24,41 +24,28 @@ gtfFile = args.gtfFile
 #----------------------------------------------------------------------
 
 
-def getIDhash(uniqueID, publicID, feature, lines2skip):
+f = open(gtfFile)
 
-    f = open(gtfFile)
-    testDict = {}
+testDict = {}
 
-    for skip in range(lines2skip):
-         f.next()
-    for i in f:
-         line = i.strip().split("\t")
-         #testList = i.strip().split("\t")[8]
-         geneTest = line[2] 
-         if geneTest == feature:
-             info = line[8].split(";")
-              
-             gene_id = info[4].split()[1].strip('"')
-             ensemble_id = info[0].split()[1].strip('"')
-             biotype = info[2].split()[1].strip('"')
-    
-             testDict[ensemble_id]=[ensemble_id, gene_id, biotype]
-    return testDict
+for skip in range(5):
+     f.next()
+for i in f:
+     line = i.strip().split("\t")
+     #testList = i.strip().split("\t")[8]
+     geneTest = line[2] 
+     if geneTest == "gene":
+         info = line[8].split(";")
+          
+         gene_id = info[4].split()[1].strip('"')
+         ensemble_id = info[0].split()[1].strip('"')
+         biotype = info[2].split()[1].strip('"')
 
-testDict = getIDhash()
-for key, value in testDict.items():
-     print value
-          #print line
-     #    if 'transcript_id' in testList:
-     #        ids = testList.split(";")
-     #        print geneTest, ids[0], ids[1]
-     #    #   print i.split()
-     #if i.split()[-1] == "'rRNA'":
-     #biotype = i.strip().split("\t")[-1].split(";")[4]
-     #if 'gene_biotype' in biotype:
-     #    testWord = biotype.split()[1].strip('"')
-     #    if 'rRNA' in testWord:
-     #        print i.strip()
+         testDict[ensemble_id]=[ensemble_id, gene_id, biotype]
+
+#for key, value in testDict.items():
+#    print value
+
 def getListOfFiles(rootDir, fileDir):
     
     listOfFiles = []
@@ -76,7 +63,7 @@ def getListOfFiles(rootDir, fileDir):
 #
 listOfFiles = getListOfFiles(rootDir, fileDir)
 
-output = open("htseq-cout-table.txt", "w")
+#output = open("htseq-cout-table.txt", "w")
 
 column = []
 columns = []
@@ -84,7 +71,6 @@ nameColumn = []
 
 for textFile in listOfFiles:
     f = open(textFile)
-    
     for line in f:
 
         #-------------------------------------------------------
@@ -112,7 +98,8 @@ for textFile in listOfFiles:
 
             dataValue = line.strip().split()[-1]
             EnsemblName = line.strip().split()[0]
-
+            print EnsemblName
+            break
             if sampleId not in column:
                 column.append(sampleId)
 
@@ -122,18 +109,19 @@ for textFile in listOfFiles:
         # but I'll for now 
         if len(nameColumn) < 65218:
             if not nameColumn:
-                nameColumn.append('Ensembl gene names')
+                nameColumn.append(['Ensembl gene names'])
+            #extraInfo = testDict.get(EnsemblName)
+            #nameColumn.append(extraInfo)
             nameColumn.append(EnsemblName)
 
-    if nameColumn not in columns:
-        
-        columns.append(nameColumn)
+    print EnsemblName, dataValue
 
+    #if nameColumn not in columns:
+    #   columns.append([item for sublist in nameColumn for item in sublist])
     columns.append(column)
     column = []
 #print len(columns)#
 for betterName in zip(*columns):
-    #print len(betterName)
-    #print betterName
-    print '\t'.join(betterName)
+    pass
+    #print '\t'.join(betterName)
     #output.write('\t'.join(betterName)+'\n')
