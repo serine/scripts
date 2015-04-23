@@ -10,5 +10,10 @@ for different bioionformatics problems.
 ## BigDataScript
 
 For those who don't know BigDataScript (BDS) is pipeline language with the focus on bioinformatics, although can be
-jsut as easily used for any any sorts of purposes where tasks need to be automated. Here is a link to the site
+just as easily used for any sorts of purposes where tasks need to be automated. Here is a link to the official site
 [BigDataScript](http://pcingola.github.io/BigDataScript/)
+
+## BASH scripting
+
+Please don't look into my sh directory. My BASH scripting skills are pretty poor.
+
