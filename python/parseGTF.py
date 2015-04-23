@@ -29,10 +29,10 @@ for i in f:
         ensemble_id = info[0].split()[1].strip('"')
         biotype = info[2].split()[1].strip('"')
 
-        testDict[ensemble_id]=[gene_id, biotype]
+        testDict[ensemble_id]=[ensemble_id, gene_id, biotype]
 
 for key, value in testDict.items():
-    print key, value
+    print value
          #print line
     #    if 'transcript_id' in testList:
     #        ids = testList.split(";")

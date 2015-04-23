@@ -1,8 +1,21 @@
 string workingDir = "$PWD"
 
-for ( string checkFile : workingDir.dirPath() ) {
+string check 
+string checkOne
 
-    if ( checkFile.endsWith(".bam") ) warning "Checking if working works"
+if( check.isEmpty() ) error "Usage this is test error"
+
+if( !check.isEmpty() ) {
     
-    print("looks like it has gone pass the warning message\n")
+    if( ( check != "yes" ) && ( check != "no" ) ) error "Usage: -check yes or no"
+    
+    if( checkOne.isEmpty() ) error "Usage give values to checkOne"
 }
+
+sys echo "Hi"
+#for ( string checkFile : workingDir.dirPath() ) {
+#
+#   if ( checkFile.endsWith(".bam") ) warning "Checking if working works"
+#   
+#   print("looks like it has gone pass the warning message\n")
+#}

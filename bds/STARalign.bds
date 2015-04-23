@@ -34,14 +34,16 @@
 #  Input Parametrs
 #----------------------------------------------------------------------------------------------------
 
+string check4input 
+string star           help select if you would like to run star. Options: yes or no
 string fastqDir       help path to the directory with fastq file       
 string genomeIndex    help path to the directory with genome index for the coresponding species
+string count          help Select if you would like to count reads. Options: yes or no
 string gtfFile        help path to the directory with gtf file
-string readCount      help Select if read counts is required using htseq-count 
-string readSort       help Select if reads need to be sorted using samtools 
+string prePro         help Select if you would like to preprocess your bam files for RNA-SeQC run Options: yes or no
+string fastaRef       help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
 string rnaseQC        help Select if would like to run RNA-SeQC tool
-string count          help Indicate yes or no
-string fastaRef       help path to the reference fasta file only supply if you are going to run rnaseQC
+
 #----------------------------------------------------------------------------------------------------
 #
 # Main
@@ -52,37 +54,33 @@ string fastaRef       help path to the reference fasta file only supply if you a
 # Sanity check
 #------------------------------
 
-if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
-if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
-if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
+if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
 
 #----------------------------------------------------------------------------------------------------
 
-if( readCount.isEmpty() ) readCount = "no"
+if( !star.isEmpty() ) {
 
-if( !readCount.isEmpty() ) {
-    if( ( readCount != "yes" ) && ( readCount != "no" ) ) error "Usage: -readCount yes or no"
+    if( ( star != "yes" ) && ( star != "no" ) ) error "Usage: -star yes or no"
+    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
 }
 
 #----------------------------------------------------------------------------------------------------
-
-if( count.isEmpty() ) count = "no"
 
 if( !count.isEmpty() ) {
+
     if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
+    if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
 }
 
 #----------------------------------------------------------------------------------------------------
 
-if( readSort.isEmpty() ) readSort = "no"
-
-if( !readSort.isEmpty() ) {
-    if( ( readSort != "yes" ) && ( readSort != "no" ) ) error "Usage: -readSort yes or no"
+if( !prePro.isEmpty() ) {
+    if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
+    if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
 }
 
 #----------------------------------------------------------------------------------------------------
-
-if( rnaseQC.isEmpty() ) rnaseQC = "no"
 
 if( !rnaseQC.isEmpty() ) {
     if( ( rnaseQC != "yes" ) && ( rnaseQC != "no" ) ) error "Usage: -rnaSeQC yes or no"
@@ -131,37 +129,12 @@ for (string fq : fastqDir.dir() ) {
 # Execution of STAR
 #------------------------------
 
-#----------------------------------------------------------------------
-# Warning ! unsed code here. migh tneed to be removed
-#----------------------------------------------------------------------
-#string fastqWorkingDir = "$PWD"
-#
-#string[] tmp1 = fastqWorkingDir.split("/")
-#string tmp2 = tmp1.pop() 
-#string[] tmp3 = tmp2.split("AGRF_CAGRF")
-#
-## SM field in the bam file is populated with samplesName value
-## SM i.e Sample. "Use pool name where a pool is being sequenced."
-#
-#string samplesName = tmp3.pop()                    
-#----------------------------------------------------------------------
-
 #------------------------------
 # Sanity check if pwd hasn't
 # got any bam files in it
 #------------------------------
 
-string fastqWorkingDir = "$PWD"
-
-string[] checkBamList
-
-for ( string checkBam : fastqWorkingDir.dirPath() ) {
-    if ( checkBam.endsWith(".bam") ) {
-        checkBamList.add(checkBam)
-    }
-}
-
-if ( checkBamList.isEmpty() ) {
+if ( star == "yes" ) {
 
     string[] listR1
     string[] listR2
@@ -221,128 +194,8 @@ if ( checkBamList.isEmpty() ) {
     }
 }
 
-else {
-
-    print("There were bam files found in the current directory BDS will skip STAR alignment and move on to the next section\n")
-}
-
-string workingDir = "$PWD"                 # gets the current directory to which STAR have putted bam files
-
-#------------------------------
-# htseq-count 
-#------------------------------
-
-if ( readCount == "yes" ) {
-    
-    string strandedReverse = "strandedReverse"
-    
-    if( !strandedReverse.exists() ) {
-        strandedReverse.mkdir()
-    }
-    
-    for (string bamFile : workingDir.dirPath() ) {
-    
-        if( bamFile.endsWith(".bam") ) {
-    
-            string[] temp = bamFile.split("/")
-            string name = temp.pop()
-            string[] temp2 = name.split('_Aligned')
-            string rootName = temp2[0]
-    
-            string newFile = strandedReverse+"/"+rootName+".txt" 
-            task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $newFile
-    
-        }
-    }
-    
-    wait
-
-    string strandedReverse = "strandedNo"
-
-    if( !strandedNo.exists() ) {
-        strandedNo.mkdir()
-    }
-    
-    for (string bamFile : workingDir.dirPath() ) {
-    
-        if( bamFile.endsWith(".bam") ) {
-    
-            string[] temp = bamFile.split("/")
-            string name = temp.pop()
-            string[] temp2 = name.split('_Aligned')
-            string rootName = temp2[0]
-    
-            string newFile = strandedNo+"/"+rootName+".txt" 
-            task htseq-count -q -s no -f bam $bamFile $gtfFile > $newFile
-    
-        }
-    }
-}
-
-#------------------------------
-# featureCount
-#------------------------------
-
-#for ( string checkIfDirs : workingDir.dir() ) {
-#   if ( (checkIfDirs == "strandedReverse") || (checkIfDirs == "strandedNo") ) {
-#       print("strandedReverse and/or strandedNo directories were identified in the current directory. This is a
-#signature of the counting step being processed. BDS will skip counting step and move on to the next step\n")
-#       exit     
-#   }
-#}
-#
-#exit
-
-
-if ( count == "yes" ) {
-    
-    string strandedNo = "strandedNo"
-    string strandedReverse = "strandedReverse"
-    
-    if( !strandedNo.exists() ) {
-        strandedNo.mkdir()
-    }
-
-    for (string bamFile : workingDir.dirPath() ) {
-    
-        if( bamFile.endsWith(".bam") ) {
-    
-            string[] temp = bamFile.split("/")
-            string name = temp.pop()
-            string[] temp2 = name.split('_Aligned')
-            string rootName = temp2[0]
-    
-            string noStrand = strandedNo+"/"+rootName+".txt" 
-
-            task featureCounts -a $gtfFile -o $noStrand $bamFile -s 0
-    
-        }
-    }
-
-    wait
-
-    if( !strandedReverse.exists() ) {
-        strandedReverse.mkdir()
-    }
-    
-    for (string bamFile : workingDir.dirPath() ) {
-    
-        if( bamFile.endsWith(".bam") ) {
-    
-            string[] temp = bamFile.split("/")
-            string name = temp.pop()
-            string[] temp2 = name.split('_Aligned')
-            string rootName = temp2[0]
-    
-            string reverseStrand = strandedReverse+"/"+rootName+".txt" 
-            string noStrand = strandedNo+"/"+rootName+".txt" 
-
-            task featureCounts -a $gtfFile -o $reverseStrand $bamFile -s 2
-    
-        }
-    }
-}
-
+# gets the current directory to with bam files
+string workingDir = "$PWD"
 
 #------------------------------
 # piacrd secssion
@@ -350,25 +203,13 @@ if ( count == "yes" ) {
 # for RNA-SeQC run
 #------------------------------
 
-if (readSort == "yes" ) {
+if ( prePro == "yes" ) {
 
     string preqcBamFiles = "preqcBamFiles"
-    
-    if( !preqcBamFiles.exists() ) {
-    
+
+    if ( !preqcBamFiles.exists() ) {
         preqcBamFiles.mkdir()
     }
-
-    string canonicalPath = fastaRef.path()
-    string[] tmpPath1 = canonicalPath.split("/")
-    string toChuck = tmpPath1.pop()
-    string tmpPath2 = tmpPath1.join("/")
-
-    string tempRef = fastaRef.baseName(".fa")
-
-    string nameRef = tmpPath2+"/"+tempRef+".dict"
-
-    sys picard CreateSequenceDictionary REFERENCE=$fastaRef OUTPUT=$nameRef
 
     # loop over the directory and submit all bam files for sorting
 
@@ -384,7 +225,7 @@ if (readSort == "yes" ) {
     
             task picard SortSam TMP_DIR=tmp/ \
                                 INPUT=$bamFile \
-                                OUTPUT=sortedName \
+                                OUTPUT=$sortedName \
                                 SORT_ORDER=coordinate
         }
     }
@@ -438,6 +279,9 @@ if (readSort == "yes" ) {
                                        METRICS_FILE=$metricsName
 
         }
+
+    wait 
+
     }
 }
 
@@ -452,5 +296,38 @@ if ( rnaseQC == "yes" ) {
 }
 
 #------------------------------
-# The End
+# htseq-count 
+#------------------------------
+
+if ( count == "yes" ) {
+    
+    string strandedReverse = "strandedReverse"
+    string strandedNo = "strandedNo"
+
+    if( (!strandedReverse.exists()) && (!strandedNo.exists()) ) {
+        strandedReverse.mkdir()
+        strandedNo.mkdir()
+    }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string runOne = strandedReverse+"/"+rootName+".txt" 
+            string runTwo = strandedNo+"/"+rootName+".txt" 
+
+            task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $runOne
+            task htseq-count -q -s no -f bam $bamFile $gtfFile > $runTwo
+
+        }
+    }
+}
+
+#------------------------------
+# End
 #------------------------------
