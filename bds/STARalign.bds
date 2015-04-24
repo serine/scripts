@@ -180,7 +180,7 @@ if ( star == "yes" ) {
         string laneNumber = laneList.join(",")
         string preFix = uniqueName+"_"
     
-        task STAR --runThreadN 32 \
+        task STAR --runThreadN 26 \
                    --genomeDir $genomeIndex \
                    --outSAMtype BAM Unsorted \
                    --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$uniqueName \

@@ -2,6 +2,7 @@
 # -*- coding: iso-8859-15 -*-
 
 import argparse, sys, os, csv
+from collections import defaultdict
 
 #creat optional arguments using argparse module
 parser = argparse.ArgumentParser(description="learnign to use argparse")
@@ -15,7 +16,6 @@ args = parser.parse_args()
 rootDir = args.rootDir
 fileDir = args.fileDir[0]
 gtfFile = args.gtfFile
-
 #----------------------------------------------------------------------
 # This section traverses the root directory and looks for the 
 # strandedreverse directories that hold htseq-count report files
@@ -47,6 +47,12 @@ for i in f:
 #    print value
 
 def getListOfFiles(rootDir, fileDir):
+    """
+    This function loop over a root directory and searches for 
+    subdirectories under the root. Sub-directory is specified by
+    --fileDir.  The function return a list of files from sub-directory,
+    i.e from all directories under the root that match --fileDir input.
+    """
     
     listOfFiles = []
 
@@ -60,17 +66,25 @@ def getListOfFiles(rootDir, fileDir):
                         if i != ".dir_bash_history":
                             listOfFiles.append(os.path.join(testDir, i))
     return listOfFiles
-#
+
 listOfFiles = getListOfFiles(rootDir, fileDir)
 
-#output = open("htseq-cout-table.txt", "w")
-
+dataDict = defaultdict(list)
+dataList = []
 column = []
-columns = []
-nameColumn = []
+rightOrder = []
 
 for textFile in listOfFiles:
+    """
+    Here I'm looping over list of files
+    - open each file
+    - exctract information from each file
+    - save extracted information
+    - move on to the next file
+    """
+    # open a file
     f = open(textFile)
+    # loop over each line in the file
     for line in f:
 
         #-------------------------------------------------------
@@ -95,33 +109,29 @@ for textFile in listOfFiles:
         #-------------------------------------------------------
 
         if not line.startswith("__"):
-
+            # get values from the file
             dataValue = line.strip().split()[-1]
+            # get name from the file
             EnsemblName = line.strip().split()[0]
-            print EnsemblName
-            break
+            
+            if not column:
+                column.append('Ensembl gene name')
+                column.append('Biotype')
+                column.append('Public gene name')
+
+            if len(rightOrder) < 65217:
+                rightOrder.append(EnsemblName)
+
+            if len(dataDict) < 65217:
+                dataList = testDict.get(EnsemblName)
+                dataList.append(dataValue)
+                dataDict[EnsemblName] = dataList
+            else:
+                dataDict[EnsemblName].append(dataValue)
+
             if sampleId not in column:
                 column.append(sampleId)
 
-            column.append(dataValue)
-        # I'm pretty sure I can just have 
-        # if len(nameColumn) < len(column)
-        # but I'll for now 
-        if len(nameColumn) < 65218:
-            if not nameColumn:
-                nameColumn.append(['Ensembl gene names'])
-            #extraInfo = testDict.get(EnsemblName)
-            #nameColumn.append(extraInfo)
-            nameColumn.append(EnsemblName)
-
-    print EnsemblName, dataValue
-
-    #if nameColumn not in columns:
-    #   columns.append([item for sublist in nameColumn for item in sublist])
-    columns.append(column)
-    column = []
-#print len(columns)#
-for betterName in zip(*columns):
-    pass
-    #print '\t'.join(betterName)
-    #output.write('\t'.join(betterName)+'\n')
+print '\t'.join(column)
+for order in rightOrder:
+    print '\t'.join(dataDict.get(order))
