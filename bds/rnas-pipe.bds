@@ -281,10 +281,9 @@ if ( prePro == "yes" ) {
                                        METRICS_FILE=$metricsName
 
         }
-
-    wait 
-
     }
+
+    wait
 }
 
 #------------------------------
