@@ -95,14 +95,13 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
 # Map reads
 #------------------------------
 
-string[] uniqueNamesList # a list with files names, that is sorted uniquely
-string checkNameRoot
+string{} uniqueNamesMap # a list with files names, that is sorted uniquely
 
 #------------------------------
 # Get list of unique names
 #------------------------------
 
-for (string fq : fastqDir.dir() ) {
+for (string fq : fastqDir.dirPath() ) {
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
@@ -111,23 +110,15 @@ for (string fq : fastqDir.dir() ) {
          string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
          string rootName = tempRoot[0]
 
-     if ( rootName != checkNameRoot ) {
-
+         if ( !uniqueNamesMap.hasKey(rootName) ) {
              # append to the list if it isn't in the list already
-             uniqueNamesList.add(rootName)
-             checkNameRoot = rootName
-
+             uniqueNamesMap{rootName} = fq
          }
 
-         else {
-             
-             # if in the list than just skip
-             checkNameRoot = rootName 
-
-         }
-     }
+         uniqueNamesMap{rootName} += ","+fq
+     }       
 }
-
+print("$uniquesNamesMap\n")
 #------------------------------
 # Execution of STAR
 #------------------------------
@@ -143,7 +134,7 @@ if ( star == "yes" ) {
     string[] listR2
     string[] laneList
     
-    for (string uniqueName : uniqueNamesList ) {
+    for (string uniqueName : uniqueNamesMap ) {
     
         for (string fqread : fastqDir.dir() ) {
         
