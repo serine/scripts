@@ -7,22 +7,22 @@ from collections import defaultdict
 #creat optional arguments using argparse module
 parser = argparse.ArgumentParser(description="learnign to use argparse")
 
-#parser.add_argument('directory', help='directory to use', action='store')
 parser.add_argument('--rootDir',  default=os.getcwd(), help="specify root directory")
 parser.add_argument('--fileDir', nargs=1, default=argparse.SUPPRESS, help="specify files directory")
 parser.add_argument('--gtfFile', help="specify path to the gtf file")
 #parser.print_help()
+
 args = parser.parse_args()
 rootDir = args.rootDir
 fileDir = args.fileDir[0]
 gtfFile = args.gtfFile
+
 #----------------------------------------------------------------------
 # This section traverses the root directory and looks for the 
 # strandedreverse directories that hold htseq-count report files
 # It then appends all files from those stranded reverse directories
 # to one list listOfFiles
 #----------------------------------------------------------------------
-
 
 f = open(gtfFile)
 
@@ -32,7 +32,6 @@ for skip in range(5):
      f.next()
 for i in f:
      line = i.strip().split("\t")
-     #testList = i.strip().split("\t")[8]
      geneTest = line[2] 
      if geneTest == "gene":
          info = line[8].split(";")
@@ -115,9 +114,9 @@ for textFile in listOfFiles:
             EnsemblName = line.strip().split()[0]
             
             if not column:
-                column.append('Ensembl gene name')
+                column.append('Ensembl ID')
                 column.append('Biotype')
-                column.append('Public gene name')
+                column.append('Gene name')
 
             if len(rightOrder) < 65217:
                 rightOrder.append(EnsemblName)
