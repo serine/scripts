@@ -90,12 +90,13 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 # Map reads
 #------------------------------
 
-# a list with files names, that is sorted uniquely
-string{} uniqueNamesMap 
 
 #------------------------------
 # Get list of unique names
 #------------------------------
+
+# a list with files names, that is sorted uniquely
+string{} uniqueNamesMap 
 
 for (string fq : fastqDir.dirPath() ) {
      # make sure we have fastq files only
@@ -105,7 +106,9 @@ for (string fq : fastqDir.dirPath() ) {
          
          if ( getR1Index != -1 ) {
              # get the root of the file name with regex
-             string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
+             string[] tmpFile = fq.split("/")
+             string getFile = tmpFile.pop()
+             string[] tempRoot = getFile.split("_L[0-9]{3}_R[0-9].fastq.gz$")
              string rootName = tempRoot[0]
 
              if ( !uniqueNamesMap.hasKey(rootName) ) {
@@ -175,15 +178,15 @@ if ( star == "yes" ) {
         if ( preFix.isEmpty() ) preFix = fqread+"_"
         #print("$read1 $read2 $preFix\n")
         task STAR --runThreadN 10 \
-                   --genomeDir $genomeIndex \
-                   --outSAMtype BAM Unsorted \
-                   --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
-                   --outSAMunmapped Within \
-                   --readFilesCommand zcat \
-                   --readFilesIn $read1 $read2 \
-                   --outFileNamePrefix $preFix
+                  --genomeDir $genomeIndex \
+                  --outSAMtype BAM Unsorted \
+                  --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
+                  --outSAMunmapped Within \
+                  --readFilesCommand zcat \
+                  --readFilesIn $read1 $read2 \
+                  --outFileNamePrefix $preFix
+        wait
     }
-    wait
 }
 
 # gets the current directory to with bam files
