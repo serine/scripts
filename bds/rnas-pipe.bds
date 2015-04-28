@@ -97,7 +97,7 @@ string{} uniqueNamesMap
 # Get list of unique names
 #------------------------------
 
-for (string fq : fastqDir.dir() ) {
+for (string fq : fastqDir.dirPath() ) {
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
