@@ -96,10 +96,9 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 #------------------------------
 
 string{} uniqueNamesList # a list with files names, that is sorted uniquely
-string[] xxx
 
 #------------------------------
-# this is dev branch
+# this is dev branch !!!
 #------------------------------
 #------------------------------
 # Get list of unique names
