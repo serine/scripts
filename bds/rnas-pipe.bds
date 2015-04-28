@@ -41,7 +41,6 @@ string count          help Select if you would like to count reads. Options: yes
 string gtfFile        help path to the directory with gtf file
 string prePro         help Select if you would like to preprocess your bam files for RNA-SeQC run Options: yes or no
 string fastaRef       help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
-string rnaseQC        help Select if would like to run RNA-SeQC tool
 
 #----------------------------------------------------------------------------------------------------
 #
@@ -83,11 +82,7 @@ if( !prePro.isEmpty() ) {
 
 #----------------------------------------------------------------------------------------------------
 
-if( !rnaseQC.isEmpty() ) {
-    if( ( rnaseQC != "yes" ) && ( rnaseQC != "no" ) ) error "Usage: -rnaSeQC yes or no"
-}
-
-if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
+if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 
 #----------------------------------------------------------------------------------------------------
 
@@ -95,30 +90,33 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/STARalign.bds --help
 # Map reads
 #------------------------------
 
-string{} uniqueNamesMap # a list with files names, that is sorted uniquely
+# a list with files names, that is sorted uniquely
+string{} uniqueNamesMap 
 
 #------------------------------
 # Get list of unique names
 #------------------------------
 
-for (string fq : fastqDir.dirPath() ) {
+for (string fq : fastqDir.dir() ) {
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
-         # get the root of the file name with regex
+         string getR1Index = fq.lastIndexOf("R1") 
+         
+         if ( getR1Index != -1 ) {
+             # get the root of the file name with regex
+             string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
+             string rootName = tempRoot[0]
 
-         string[] tempRoot = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
-         string rootName = tempRoot[0]
-
-         if ( !uniqueNamesMap.hasKey(rootName) ) {
-             # append to the list if it isn't in the list already
-             uniqueNamesMap{rootName} = fq
+             if ( !uniqueNamesMap.hasKey(rootName) ) {
+                 # append to the list if it isn't in the list already
+                 uniqueNamesMap{rootName} = ''
+             }
+             uniqueNamesMap{rootName} += ","+fq
          }
-
-         uniqueNamesMap{rootName} += ","+fq
      }       
 }
-print("$uniquesNamesMap\n")
+
 #------------------------------
 # Execution of STAR
 #------------------------------
@@ -129,211 +127,196 @@ print("$uniquesNamesMap\n")
 #------------------------------
 
 if ( star == "yes" ) {
+    #loop over each key in the map
+    for (string fqread : uniqueNamesMap.keys() ) {
+        #---------------------------------------------
+        # define banch of empty variables for later use
+        string[] listR1
+        string[] listR2
+        string[] laneList
 
-    string[] listR1
-    string[] listR2
-    string[] laneList
-    
-    for (string uniqueName : uniqueNamesMap ) {
-    
-        for (string fqread : fastqDir.dir() ) {
+        string read1 
+        string read2
+        string lanes
+
+        string preFix
+        #---------------------------------------------
         
-            if (fqread.endsWith("fastq.gz") ) {
-            
-                string getFileIndex = fqread.lastIndexOf(uniqueName) 
-                
-                if ( getFileIndex != -1 ) {
-        
-                    string getR1Index = fqread.lastIndexOf("R1") 
-    
-                    if ( getR1Index != -1 ) {
-                    
-                        #print("$fqread\n")
-                        string[] laneN1 = fqread.split(uniqueName+"_")
-                        string laneN2 = laneN1.pop()
-                        string[] laneN3 = laneN2.split("_R1")
-                        string laneN4 = laneN3[0]
-    
-                        listR1.add(fqread)
-                        laneList.add(laneN4)
-        
-                    }
-    
-                    else {
-    
-                        listR2.add(fqread)
-                    }
-                }
-            }
+        # get value for each key 
+        string mapValue = uniqueNamesMap{fqread} 
+        # break the values into list
+        # side effect of BDS
+        string[] getList = mapValue.split(",")
+        # this is length of the list
+        # -1, because there is an extra comma in the
+        # value list. side effect of BDS
+	int getListSize = getList.size()-1
+
+        # loop over each item in the getList
+        for ( int i : range(1,getListSize) ) {
+            # get fastq reads and get it pair 
+            string singleRead = getList[i]
+            string pairedEnd = singleRead.swapExt("R1.fastq.gz", "R2.fastq.gz")
+            # exctract lanes information from the file name
+            string[] tmpLane = singleRead.split("_")
+            string tmpLane2 = tmpLane.pop()
+            string getLane = tmpLane.pop()
+
+            listR1.add(singleRead)
+            listR2.add(pairedEnd)
+            laneList.add(getLane)
+
+            # concatenate for STAR usage 
+            read1 = listR1.join(",")
+            read2 = listR2.join(",")
+            lanes = laneList.join(",")
         }
-        string read1 = listR1.join(",")
-        string read2 = listR2.join(",")
-        string laneNumber = laneList.join(",")
-        string preFix = uniqueName+"_"
-        print("$read1 $read2\n")
-#        task STAR --runThreadN 26 \
-#                   --genomeDir $genomeIndex \
-#                   --outSAMtype BAM Unsorted \
-#                   --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$uniqueName \
-#                   --outSAMunmapped Within \
-#                   --readFilesCommand zcat \
-#                   --readFilesIn $read1 $read2 \
-#                   --outFileNamePrefix $preFix
-#        
-#        listR1 = []
-#        listR2 = []
-#        laneList = []
-#       
-#        wait
+        # get file name pre fix for STAR naming 
+        if ( preFix.isEmpty() ) preFix = fqread+"_"
+        #print("$read1 $read2 $preFix\n")
+        task STAR --runThreadN 10 \
+                   --genomeDir $genomeIndex \
+                   --outSAMtype BAM Unsorted \
+                   --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
+                   --outSAMunmapped Within \
+                   --readFilesCommand zcat \
+                   --readFilesIn $read1 $read2 \
+                   --outFileNamePrefix $preFix
+    }
+    wait
+}
+
+# gets the current directory to with bam files
+string workingDir = "$PWD"
+
+#------------------------------
+# piacrd secssion
+# bam file preprocessing 
+# for RNA-SeQC run
+#------------------------------
+
+if ( prePro == "yes" ) {
+
+    string preqcBamFiles = "preqcBamFiles"
+
+    if ( !preqcBamFiles.exists() ) {
+        preqcBamFiles.mkdir()
+    }
+
+    # loop over the directory and submit all bam files for sorting
+    for (string bamFile : workingDir.dirPath() ) {
+        if( bamFile.endsWith(".bam") ) {
+
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted.bam"
+
+            task picard SortSam TMP_DIR=tmp/ \
+                                INPUT=$bamFile \
+                                OUTPUT=$sortedName \
+                                SORT_ORDER=coordinate
+        }
+    }
+    
+    wait
+
+    string preqcDir = "$PWD"+"/"+preqcBamFiles
+
+    # waint until all bam files in the directory were sorted
+    # then reorder all sorted bam files
+
+    for (string bamFile : preqcDir.dirPath() ) {
+
+        if( bamFile.endsWith("sorted.bam") ) {
+
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_sorted')
+            string rootName = temp2[0]
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered.bam"
+
+            task picard ReorderSam TMP_DIR=tmp/ \
+                                   INPUT=$bamFile \
+                                   OUTPUT=$sortedName \
+                                   REFERENCE=$fastaRef
+
+        }
+    }
+
+    wait 
+
+    # wait until all bam fiels in the direcotory were reordered
+    # then mark duplicates
+
+    for (string bamFile : preqcDir.dirPath() ) {
+    
+        if( bamFile.endsWith("reordered.bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_sorted')
+            string rootName = temp2[0]
+            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.bam"
+            string metricsName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.metrics"
+
+            task picard MarkDuplicates TMP_DIR=tmp/ \
+                                       CREATE_INDEX=true \
+                                       INPUT=$bamFile \
+                                       OUTPUT=$sortedName \
+                                       METRICS_FILE=$metricsName
+
+        }
+    }
+
+    wait
+}
+
+#------------------------------
+# htseq-count 
+#------------------------------
+
+if ( count == "yes" ) {
+    
+    string strandedReverse = "strandedReverse"
+    string strandedNo = "strandedNo"
+
+    if( (!strandedReverse.exists()) && (!strandedNo.exists()) ) {
+        strandedReverse.mkdir()
+        strandedNo.mkdir()
+    }
+    
+    for (string bamFile : workingDir.dirPath() ) {
+    
+        if( bamFile.endsWith(".bam") ) {
+    
+            string[] temp = bamFile.split("/")
+            string name = temp.pop()
+            string[] temp2 = name.split('_Aligned')
+            string rootName = temp2[0]
+    
+            string runOne = strandedReverse+"/"+rootName+".txt" 
+            string runTwo = strandedNo+"/"+rootName+".txt" 
+
+            task htseq-count --quiet \
+                             --stranded=reverse \
+                             --format=bam \
+                             --order=pos \
+                             $bamFile $gtfFile > $runOne
+
+            task htseq-count --quiet \
+                             --stranded=no \
+                             --format=bam \
+                             --order=pos \
+                             $bamFile $gtfFile > $runOne
+
+
+
+        }
     }
 }
-#
-## gets the current directory to with bam files
-#string workingDir = "$PWD"
-#
-##------------------------------
-## piacrd secssion
-## bam file preprocessing 
-## for RNA-SeQC run
-##------------------------------
-#
-#if ( prePro == "yes" ) {
-#
-#    string preqcBamFiles = "preqcBamFiles"
-#
-#    if ( !preqcBamFiles.exists() ) {
-#        preqcBamFiles.mkdir()
-#    }
-#
-#    # loop over the directory and submit all bam files for sorting
-#
-#    for (string bamFile : workingDir.dirPath() ) {
-#    
-#        if( bamFile.endsWith(".bam") ) {
-#    
-#            string[] temp = bamFile.split("/")
-#            string name = temp.pop()
-#            string[] temp2 = name.split('_Aligned')
-#            string rootName = temp2[0]
-#            string sortedName = preqcBamFiles+"/"+rootName+"_sorted.bam"
-#
-#            task picard SortSam TMP_DIR=tmp/ \
-#                                INPUT=$bamFile \
-#                                OUTPUT=$sortedName \
-#                                SORT_ORDER=coordinate
-#        }
-#    }
-#    
-#    wait
-#
-#    string preqcDir = "$PWD"+"/"+preqcBamFiles
-#
-#    # waint until all bam files in the directory were sorted
-#    # then reorder all sorted bam files
-#
-#    for (string bamFile : preqcDir.dirPath() ) {
-#
-#        if( bamFile.endsWith("sorted.bam") ) {
-#
-#            string[] temp = bamFile.split("/")
-#            string name = temp.pop()
-#            string[] temp2 = name.split('_sorted')
-#            string rootName = temp2[0]
-#            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered.bam"
-#
-#            task picard ReorderSam TMP_DIR=tmp/ \
-#                                   INPUT=$bamFile \
-#                                   OUTPUT=$sortedName \
-#                                   REFERENCE=$fastaRef
-#
-#        }
-#    }
-#
-#    wait 
-#
-#    # wait until all bam fiels in the direcotory were reordered
-#    # then mark duplicates
-#
-#    for (string bamFile : preqcDir.dirPath() ) {
-#    
-#        if( bamFile.endsWith("reordered.bam") ) {
-#    
-#            string[] temp = bamFile.split("/")
-#            string name = temp.pop()
-#            string[] temp2 = name.split('_sorted')
-#            string rootName = temp2[0]
-#            string sortedName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.bam"
-#            string metricsName = preqcBamFiles+"/"+rootName+"_sorted_reordered_marked_dups.metrics"
-#
-#            task picard MarkDuplicates TMP_DIR=tmp/ \
-#                                       CREATE_INDEX=true \
-#                                       INPUT=$bamFile \
-#                                       OUTPUT=$sortedName \
-#                                       METRICS_FILE=$metricsName
-#
-#        }
-#    }
-#
-#    wait
-#}
-#
-##------------------------------
-## Beta RNA-SeQC
-##------------------------------
-#
-#if ( rnaseQC == "yes" ) {
-#
-#    #sys module load RNA-SeQC
-#
-#    #string rnaseqcDir = "rnaseqcDir"
-#
-#    #if ( !rnaseqcDir.exists() ) {
-#    #   rnaseqcDir.mkdir()
-#    #}
-#    ##outputDir = rna-seqcDir+"/"+
-#
-#    #for ( string markedBam : preqcDir.dirPath() ) {
-#    #   print("$markedBam\n")
-#    ##  task rna-seqc -s 
-#    #}
-#
-#    print("Hi\n")
-#
-#}
-#
-##------------------------------
-## htseq-count 
-##------------------------------
-#
-#if ( count == "yes" ) {
-#    
-#    string strandedReverse = "strandedReverse"
-#    string strandedNo = "strandedNo"
-#
-#    if( (!strandedReverse.exists()) && (!strandedNo.exists()) ) {
-#        strandedReverse.mkdir()
-#        strandedNo.mkdir()
-#    }
-#    
-#    for (string bamFile : workingDir.dirPath() ) {
-#    
-#        if( bamFile.endsWith(".bam") ) {
-#    
-#            string[] temp = bamFile.split("/")
-#            string name = temp.pop()
-#            string[] temp2 = name.split('_Aligned')
-#            string rootName = temp2[0]
-#    
-#            string runOne = strandedReverse+"/"+rootName+".txt" 
-#            string runTwo = strandedNo+"/"+rootName+".txt" 
-#
-#            task htseq-count -q -s reverse -f bam $bamFile $gtfFile > $runOne
-#            task htseq-count -q -s no -f bam $bamFile $gtfFile > $runTwo
-#
-#        }
-#    }
-#}
-#
-##------------------------------
-## End
-##------------------------------
+
+#------------------------------
+# End
+#------------------------------
