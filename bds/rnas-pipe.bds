@@ -102,7 +102,7 @@ string checkNameRoot
 # Get list of unique names
 #------------------------------
 
-for (string fq : fastqDir.dir() ) {
+for (string fq : fastqDir.dirPath() ) {
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
@@ -145,7 +145,7 @@ if ( star == "yes" ) {
     
     for (string uniqueName : uniqueNamesList ) {
     
-        for (string fqread : fastqDir.dir() ) {
+        for (string fqread : fastqDir.dirPath() ) {
         
             if (fqread.endsWith("fastq.gz") ) {
             
