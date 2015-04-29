@@ -305,13 +305,11 @@ if ( count == "yes" ) {
             task htseq-count --quiet \
                              --stranded=reverse \
                              --format=bam \
-                             --order=pos \
                              $bamFile $gtfFile > $runOne
 
             task htseq-count --quiet \
                              --stranded=no \
                              --format=bam \
-                             --order=pos \
                              $bamFile $gtfFile > $runOne
 
 
