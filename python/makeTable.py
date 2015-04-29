@@ -67,12 +67,12 @@ def getListOfFiles(rootDir, fileDir):
     return listOfFiles
 
 listOfFiles = getListOfFiles(rootDir, fileDir)
-
 dataDict = defaultdict(list)
 dataList = []
 column = []
 rightOrder = []
 
+first =True
 for textFile in listOfFiles:
     """
     Here I'm looping over list of files
@@ -85,9 +85,8 @@ for textFile in listOfFiles:
     f = open(textFile)
     # loop over each line in the file
     for line in f:
-
         #-------------------------------------------------------
-        # This section is specifit for columns name formating
+        # This section is specific for columns name formating
         #-------------------------------------------------------
 
         fileAsStr = str(f)
@@ -118,18 +117,22 @@ for textFile in listOfFiles:
                 column.append('Biotype')
                 column.append('Gene name')
 
-            if len(rightOrder) < 65217:
+            #if len(rightOrder) < 65217:
+            if first:
                 rightOrder.append(EnsemblName)
 
-            if len(dataDict) < 65217:
+            #if len(dataDict) < 65217:
+            if EnsemblName not in dataDict:
                 dataList = testDict.get(EnsemblName)
-                dataList.append(dataValue)
                 dataDict[EnsemblName] = dataList
-            else:
-                dataDict[EnsemblName].append(dataValue)
+
+            dataDict[EnsemblName].append(dataValue)
+
+            #dataList.append(dataValue)
 
             if sampleId not in column:
                 column.append(sampleId)
+    first=False
 
 print '\t'.join(column)
 for order in rightOrder:
