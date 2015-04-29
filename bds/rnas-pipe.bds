@@ -98,7 +98,9 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 # a list with files names, that is sorted uniquely
 string{} uniqueNamesMap 
 
-for (string fq : fastqDir.dirPath() ) {
+# the string.dirPath() is a canonical path
+#for (string fq : fastqDir.dirPath() ) {
+for (string fq : fastqDir.dir() ) {
      # make sure we have fastq files only
      if ( fq.endsWith(".fastq.gz") ) {
 
@@ -177,9 +179,11 @@ if ( star == "yes" ) {
         # get file name pre fix for STAR naming 
         if ( preFix.isEmpty() ) preFix = fqread+"_"
         #print("$read1 $read2 $preFix\n")
-        task STAR --runThreadN 10 \
+        #print("$read1 $read2\n")
+        task STAR --runThreadN 25 \
                   --genomeDir $genomeIndex \
                   --outSAMtype BAM Unsorted \
+                  # ! don't forget to edit linee below, since this sample specific information !
                   --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
                   --outSAMunmapped Within \
                   --readFilesCommand zcat \
