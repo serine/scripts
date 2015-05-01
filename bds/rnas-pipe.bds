@@ -153,7 +153,7 @@ if ( star == "yes" ) {
         # this is length of the list
         # -1, because there is an extra comma in the
         # value list. side effect of BDS
-	int getListSize = getList.size()-1
+        int getListSize = getList.size()-1
 
         # loop over each item in the getList
         for ( int i : range(1,getListSize) ) {
@@ -177,7 +177,8 @@ if ( star == "yes" ) {
         # get file name pre fix for STAR naming 
         if ( preFix.isEmpty() ) preFix = bamFiles+"/"+fqread+"_"
         #print("$read1 $read2\n")
-        task STAR --runThreadN 27 \
+        
+        task STAR --runThreadN 5 \
                   --genomeDir $genomeIndex \
                   --outSAMtype BAM Unsorted \
                   --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
@@ -185,7 +186,6 @@ if ( star == "yes" ) {
                   --readFilesCommand zcat \
                   --readFilesIn $read1 $read2 \
                   --outFileNamePrefix $preFix
-        wait
     }
 }
 
@@ -201,7 +201,8 @@ if ( prePro == "yes" ) {
         string sortedName = preqcBamFiles+"/"+bamFile.baseName().swapExt("Aligned.out.bam", "sorted.bam")
 
         task ( sortedName <- bamFile ) {
-           sys picard SortSam TMP_DIR=tmp/ \
+            sys picard SortSam TMP_DIR=tmp/ \
+                              VALIDATION_STRINGENCY=LENIENT \
                               INPUT=$bamFile \
                               OUTPUT=$sortedName \
                               SORT_ORDER=coordinate
@@ -211,6 +212,7 @@ if ( prePro == "yes" ) {
     
         task ( reorderedName <- sortedName ) {
            sys picard ReorderSam TMP_DIR=tmp/ \
+                                 VALIDATION_STRINGENCY=LENIENT \
                                  INPUT=$sortedName \
                                  OUTPUT=$reorderedName \
                                  REFERENCE=$fastaRef
@@ -221,6 +223,7 @@ if ( prePro == "yes" ) {
 
         task ( mdupsName <- reorderedName ) {
            sys picard MarkDuplicates TMP_DIR=tmp/ \
+                                     VALIDATION_STRINGENCY=LENIENT \
                                      CREATE_INDEX=true \
                                      INPUT=$reorderedName \
                                      OUTPUT=$mdupsName \
@@ -238,17 +241,22 @@ if ( count == "yes" ) {
     for (string bamFile : bamFiles.dir("*bam") ) {
     
         string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+         
+        task ( reverseStranded <- bamFile ) {
+            sys htseq-count --quiet \
+                            --stranded=reverse \
+                            --format=bam \
+                            $bamFile $gtfFile > $reverseStranded
+        }
+
         string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
 
-        task htseq-count --quiet \
-                         --stranded=reverse \
-                         --format=bam \
-                         $bamFile $gtfFile > $reverseStranded
-
-        task htseq-count --quiet \
-                         --stranded=no \
-                         --format=bam \
-                         $bamFile $gtfFile > $noStranded
+        task ( noStranded <- bamFile ) {
+            sys htseq-count --quiet \
+                            --stranded=no \
+                            --format=bam \
+                            $bamFile $gtfFile > $noStranded
+        }
     }
 }
 #------------------------------
