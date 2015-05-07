@@ -32,6 +32,7 @@
 #----------------------------------------------------------------------------------------------------
 #  Input Parametrs
 #----------------------------------------------------------------------------------------------------
+#sys sleep 40
 
 string check4input 
 string star           help select if you would like to run star. Options: yes or no
@@ -41,6 +42,7 @@ string count          help Select if you would like to count reads. Options: yes
 string gtfFile        help path to the directory with gtf file
 string prePro         help Select if you would like to preprocess your bam files for RNA-SeQC run Options: yes or no
 string fastaRef       help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
+#int threads              help specify number of threads to use per signle STAR run. If you are running several alignments in parallel be wise not to over subscribe the threads
 
 #----------------------------------------------------------------------------------------------------
 #
@@ -75,6 +77,8 @@ if( !prePro.isEmpty() ) {
     if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
 }
 #----------------------------------------------------------------------------------------------------
+#if( threads.isEmpty() ) threads = 1
+#----------------------------------------------------------------------------------------------------
 if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 #----------------------------------------------------------------------------------------------------
 
@@ -84,17 +88,25 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 #
 string bamFiles = "bamFiles"
 string preqcBamFiles = "preqcBamFiles"
-string strandedReverse = "strandedReverse"
-string strandedNo = "strandedNo"
+#string strandedReverse = "strandedReverse"
+#string strandedNo = "strandedNo"
 
 if( ( !bamFiles.exists() ) && ( !star.isEmpty() ) ) bamFiles.mkdir()
 
 if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
 
-if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
-    strandedReverse.mkdir()
-    strandedNo.mkdir()
-}
+#if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
+#    strandedReverse.mkdir()
+#    strandedNo.mkdir()
+#}
+#----------------------------------------------------------------------------------------------------
+# temp section
+string featureNo = "featureNo"
+string featureReverse = "featureReverse"
+
+if( !featureNo.exists() ) featureNo.mkdir()
+if( !featureReverse.exists() ) featureReverse.mkdir()
+#----------------------------------------------------------------------------------------------------
 
 #------------------------------
 # STAR alignment 
@@ -176,9 +188,10 @@ if ( star == "yes" ) {
         }
         # get file name pre fix for STAR naming 
         if ( preFix.isEmpty() ) preFix = bamFiles+"/"+fqread+"_"
-        #print("$read1 $read2\n")
-        
-        task STAR --runThreadN 5 \
+
+        #string bamOut = preFix+"Aligned.out.bam"
+        #task ( bamOut <- [read1, read2] ) {
+        task STAR --runThreadN 27 \
                   --genomeDir $genomeIndex \
                   --outSAMtype BAM Unsorted \
                   --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
@@ -186,9 +199,9 @@ if ( star == "yes" ) {
                   --readFilesCommand zcat \
                   --readFilesIn $read1 $read2 \
                   --outFileNamePrefix $preFix
+        wait
     }
 }
-
 #----------------------------------------------------------------------
 # piacrd secssion for bam file preprocessing for RNA-SeQC report
 #----------------------------------------------------------------------
@@ -236,26 +249,52 @@ if ( prePro == "yes" ) {
 # htseq-count 
 #------------------------------
 
+#if ( count == "yes" ) {
+#        
+#    for (string bamFile : bamFiles.dir("*bam") ) {
+#    
+#        string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+#         
+#        task ( reverseStranded <- bamFile ) {
+#            sys htseq-count --quiet \
+#                            --stranded=reverse \
+#                            --format=bam \
+#                            $bamFile $gtfFile > $reverseStranded
+#        }
+#
+#        string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+#
+#        task ( noStranded <- bamFile ) {
+#            sys htseq-count --quiet \
+#                            --stranded=no \
+#                            --format=bam \
+#                            $bamFile $gtfFile > $noStranded
+#        }
+#    }
+#}
+
+#------------------------------
+# featureCount
+#------------------------------
+
 if ( count == "yes" ) {
-        
+
     for (string bamFile : bamFiles.dir("*bam") ) {
     
-        string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-         
-        task ( reverseStranded <- bamFile ) {
-            sys htseq-count --quiet \
-                            --stranded=reverse \
-                            --format=bam \
-                            $bamFile $gtfFile > $reverseStranded
+        string reverseFeature = featureReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (reverseFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $reverseFeature \
+                              $bamFile \
+                              -s 2
         }
-
-        string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-
-        task ( noStranded <- bamFile ) {
-            sys htseq-count --quiet \
-                            --stranded=no \
-                            --format=bam \
-                            $bamFile $gtfFile > $noStranded
+    
+        string noFeature = featureNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (noFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $noFeature \
+                              $bamFile \
+                              -s 0
         }
     }
 }

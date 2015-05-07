@@ -71,7 +71,6 @@ dataDict = defaultdict(list)
 dataList = []
 column = []
 rightOrder = []
-
 first =True
 for textFile in listOfFiles:
     """
@@ -89,23 +88,23 @@ for textFile in listOfFiles:
         # This section is specific for columns name formating
         #-------------------------------------------------------
 
-        fileAsStr = str(f)
+        fileAsStr = str(textFile)
         tmpName = fileAsStr.split("/")[-1]
-        
         if tmpName.startswith("cf"):
 
-            tmpRoot = tmpName.split("_")
-            tmp1 = tmpRoot.pop()
-            tmp2 = tmpRoot.pop()
-            rootName  = ''.join(tmpRoot)
-            sampleId = str(rootName.split("-")[1])
+           tmpRoot = tmpName.split("_")
+           tmp1 = tmpRoot.pop()
+           tmp2 = tmpRoot.pop()
+           rootName  = ''.join(tmpRoot)
+           sampleId = str(rootName.split("-")[1])
 
         else:
 
-            tmpRoot = tmpName.split("_")
-            sampleId = str(tmpRoot[0])
+           tmpRoot = tmpName.split("_")
+           sampleId = str(tmpRoot[0])
         #-------------------------------------------------------
-
+       
+        #----------------------------------------------------------------------
         if not line.startswith("__"):
             # get values from the file
             dataValue = line.strip().split()[-1]
@@ -114,24 +113,44 @@ for textFile in listOfFiles:
             
             if not column:
                 column.append('Ensembl ID')
-                column.append('Biotype')
                 column.append('Gene name')
-
-            #if len(rightOrder) < 65217:
+                column.append('Biotype')
+            
             if first:
                 rightOrder.append(EnsemblName)
-
-            #if len(dataDict) < 65217:
+            
             if EnsemblName not in dataDict:
                 dataList = testDict.get(EnsemblName)
                 dataDict[EnsemblName] = dataList
-
+            
             dataDict[EnsemblName].append(dataValue)
-
-            #dataList.append(dataValue)
-
+            
             if sampleId not in column:
                 column.append(sampleId)
+        #----------------------------------------------------------------------
+        #sampleId = tmpName.split(".")[0]
+        ## This part is for featureCount
+        #if line.startswith("E"):
+        #    splitLine = line.strip().split("\t")
+        #    EnsemblName = splitLine[0]
+        #    dataValue = splitLine[-1]
+
+        #    if not column:
+        #        column.append('Ensembl ID')
+        #        column.append('Gene name')
+        #        column.append('Biotype')
+
+        #    if first:
+        #        rightOrder.append(EnsemblName)
+
+        #    if EnsemblName not in dataDict:
+        #        dataList = testDict.get(EnsemblName)
+        #        dataDict[EnsemblName] = dataList
+
+        #    dataDict[EnsemblName].append(dataValue)
+
+        #    if sampleId not in column:
+        #        column.append(sampleId)
     first=False
 
 print '\t'.join(column)
