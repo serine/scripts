@@ -191,10 +191,10 @@ if ( star == "yes" ) {
 
         #string bamOut = preFix+"Aligned.out.bam"
         #task ( bamOut <- [read1, read2] ) {
-        task STAR --runThreadN 27 \
+        task STAR --runThreadN 28 \
                   --genomeDir $genomeIndex \
                   --outSAMtype BAM Unsorted \
-                  --outSAMattrRGline ID:$lanes CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
+                  --outSAMattrRGline ID:$lanes CN:Unknown DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
                   --outSAMunmapped Within \
                   --readFilesCommand zcat \
                   --readFilesIn $read1 $read2 \

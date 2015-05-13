@@ -1,15 +1,21 @@
 # This is documentation for `rnas-pipe` BDS script located in this sub-repository
 
-I have used BDS to write a pipeline for RNA-seq data primary manipulation. 
-Once you get your raw `FASTQ` files from the sequencing facility you need to
-make some quick sense. The things you probably would like to know straight away
-include:
+### RNA-seq(uencing) a.k.a Whole-transcriptome sequencing
 
- - How many reads from my RNA-seq sample have mapped to the reference genome?
- - How many of those reads have mapped ambiguously?
- - How many reads fallen on the feature i.e mapped directly onto the gene?
+First files biologist ever encounter from the sequencing facility are `FASTQ` files. These are really your raw data.
+The `rnas-pipe` allows you easily submit your fastq directory for read alignment. On top of that you can also get
+fastqc and RNA-SeQC reports and reads count for all of your bam files. 
 
-The `rnas-pipe` takes care of all of these problems. There are three main sections at this stage
+### Caveats 
+
+ - at the moment only can run `STAR` mapper with fixed options
+ - right now `-fastqDir` parameter will only work with `.` i.e your execute `rnas-pipe` in the directory where
+   your fastq files are
+ - `prePro` is a must if you want to gete RNA-SeQC report  
+ - at the moment there isn't an option to choose the strand direction for read counts
+   right now `rnas-pipe` simply counts all bams against stranded NO and stranded REVERSE options
+
+The `rnas-pipe` features:
 
  1. Reads alignment. Currently it is set to `STAR` with predefined `STAR` input parameters
     It is rather stringent at this stage and only through manual intervention one can change the input
@@ -29,4 +35,8 @@ The `rnas-pipe` takes care of all of these problems. There are three main sectio
   2. Several `picard` pre-processing steps for `RNA-SeQC` run later. `picard` produces, sorted, reordered bam files
      with marked duplicates. This is prerequisite for `RNA-SeQC` run
 
-  3. `htseq-count` that count how many reads mapped one genes 
+  3. `featureCouunts` that count how many reads mapped one genes 
+
+### Work in progress 
+
+I'm working on including `fastqc` report at the first item to run in the pipeline
