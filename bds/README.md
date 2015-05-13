@@ -17,25 +17,25 @@ fastqc and RNA-SeQC reports and reads count for all of your bam files.
 
 The `rnas-pipe` features:
 
- 1. Reads alignment. Currently it is set to `STAR` with predefined `STAR` input parameters
-    It is rather stringent at this stage and only through manual intervention one can change the input
-    parameters inside the source code. Feel free to `git clone` and edit source to your needs. 
-    There are the parameters `STAR` set up to run with in BDS by default.
+1. Reads alignment. Currently it is set to `STAR` with predefined `STAR` input parameters
+   It is rather stringent at this stage and only through manual intervention one can change the input
+   parameters inside the source code. Feel free to `git clone` and edit source to your needs. 
+   There are the parameters `STAR` set up to run with in BDS by default.
 
-    ```
-    STAR --runThreadN 26 \
-         --genomeDir $genomeIndex \
-         --outSAMtype BAM Unsorted \
-         --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$uniqueName \
-         --outSAMunmapped Within \
-         --readFilesCommand zcat \
-         --readFilesIn $read1 $read2 \
-         --outFileNamePrefix $preFix
-    ```
-  2. Several `picard` pre-processing steps for `RNA-SeQC` run later. `picard` produces, sorted, reordered bam files
-     with marked duplicates. This is prerequisite for `RNA-SeQC` run
+   ```
+   STAR --runThreadN 26 \
+        --genomeDir $genomeIndex \
+        --outSAMtype BAM Unsorted \
+        --outSAMattrRGline ID:$laneNumber CN:AGRF DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$uniqueName \
+        --outSAMunmapped Within \
+        --readFilesCommand zcat \
+        --readFilesIn $read1 $read2 \
+        --outFileNamePrefix $preFix
+   ```
+2. Several `picard` pre-processing steps for `RNA-SeQC` run later. `picard` produces, sorted, reordered bam files
+   with marked duplicates. This is prerequisite for `RNA-SeQC` run
 
-  3. `featureCouunts` that count how many reads mapped one genes 
+3. `featureCouunts` that count how many reads mapped one genes 
 
 ### Work in progress 
 
