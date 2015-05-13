@@ -2,62 +2,34 @@
 # featureCount
 #------------------------------
 
-#for ( string checkIfDirs : workingDir.dir() ) {
-#	if ( (checkIfDirs == "strandedReverse") || (checkIfDirs == "strandedNo") ) {
-#		print("strandedReverse and/or strandedNo directories were identified in the current directory. This is a
-#signature of the counting step being processed. BDS will skip counting step and move on to the next step\n")
-#		exit	 
-#	}
-#}
-#
-#exit
+string count
+string gtfFile
 
+string bamFiles
+string featureNo = "featureNo"
+string featureReverse = "featureReverse"
+
+if( !featureNo.exists() ) featureNo.mkdir()
+if( !featureReverse.exists() ) featureReverse.mkdir()
 
 if ( count == "yes" ) {
-	
-	string strandedNo = "strandedNo"
-	string strandedReverse = "strandedReverse"
-	
-	if( !strandedNo.exists() ) {
-		strandedNo.mkdir()
-	}
 
-	for (string bamFile : workingDir.dirPath() ) {
-	
-		if( bamFile.endsWith(".bam") ) {
-	
-			string[] temp = bamFile.split("/")
-			string name = temp.pop()
-			string[] temp2 = name.split('_Aligned')
-			string rootName = temp2[0]
-	
-			string noStrand = strandedNo+"/"+rootName+".txt" 
-
-			task featureCounts -a $gtfFile -o $noStrand $bamFile -s 0
-	
-		}
-	}
-
-	wait
-
-	if( !strandedReverse.exists() ) {
-		strandedReverse.mkdir()
-	}
-	
-	for (string bamFile : workingDir.dirPath() ) {
-	
-		if( bamFile.endsWith(".bam") ) {
-	
-			string[] temp = bamFile.split("/")
-			string name = temp.pop()
-			string[] temp2 = name.split('_Aligned')
-			string rootName = temp2[0]
-	
-			string reverseStrand = strandedReverse+"/"+rootName+".txt" 
-			string noStrand = strandedNo+"/"+rootName+".txt" 
-
-			task featureCounts -a $gtfFile -o $reverseStrand $bamFile -s 2
-	
-		}
-	}
+    for (string bamFile : bamFiles.dir("*bam") ) {
+    
+        string reverseFeature = featureReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (reverseFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $reverseFeature \
+                              $bamFile \
+                              -s 2
+        }
+    
+        string noFeature = featureNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (noFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $noFeature \
+                              $bamFile \
+                              -s 0
+        }
+    }
 }
