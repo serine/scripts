@@ -42,6 +42,9 @@ string count          help Select if you would like to count reads. Options: yes
 string gtfFile        help path to the directory with gtf file
 string prePro         help Select if you would like to preprocess your bam files for RNA-SeQC run Options: yes or no
 string fastaRef       help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
+string fastqc         help select if you would like to run fastQC report on the files
+string clip           help select if you would like to trim your fastq files before processing further
+string bwa            help select if you would like to use bwa aligner
 #int threads              help specify number of threads to use per signle STAR run. If you are running several alignments in parallel be wise not to over subscribe the threads
 
 #----------------------------------------------------------------------------------------------------
@@ -54,6 +57,28 @@ string fastaRef       help path to the reference fasta file, required when doing
 # Sanity check
 #------------------------------
 
+#----------------------------------------------------------------------------------------------------
+if( !fastqc.isEmpty() ) {
+
+    check4input = "populated"   
+    if( ( fastqc != "yes" ) && ( fastqc != "no" ) ) error "Usage: -fastqc yes or no"
+    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+}
+#----------------------------------------------------------------------------------------------------
+if( !clip.isEmpty() ) {
+
+    check4input = "populated"   
+    if( ( clip != "yes" ) && ( clip != "no" ) ) error "Usage: -clip yes or no"
+    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+}
+#----------------------------------------------------------------------------------------------------
+if( !bwa.isEmpty() ) {
+
+    check4input = "populated"   
+    if( ( bwa != "yes" ) && ( bwa != "no" ) ) error "Usage: -bwa yes or no"
+    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
+}
 #----------------------------------------------------------------------------------------------------
 if( !star.isEmpty() ) {
 
@@ -90,6 +115,9 @@ string bamFiles = "bamFiles"
 string preqcBamFiles = "preqcBamFiles"
 #string strandedReverse = "strandedReverse"
 #string strandedNo = "strandedNo"
+string featureNo = "featureNo"
+string featureReverse = "featureReverse"
+string fastqcReport = "fastqcReport"
 
 if( ( !bamFiles.exists() ) && ( !star.isEmpty() ) ) bamFiles.mkdir()
 
@@ -101,12 +129,84 @@ if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
 #}
 #----------------------------------------------------------------------------------------------------
 # temp section
-string featureNo = "featureNo"
-string featureReverse = "featureReverse"
 
-if( !featureNo.exists() ) featureNo.mkdir()
-if( !featureReverse.exists() ) featureReverse.mkdir()
+if( !featureNo.exists() && (!count.isEmpty()) ) featureNo.mkdir()
+if( !featureReverse.exists() && (!count.isEmpty()) ) featureReverse.mkdir()
 #----------------------------------------------------------------------------------------------------
+if( !fastqcReport.exists() && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
+#----------------------------------------------------------------------------------------------------
+
+#------------------------------
+# fastQC report
+#------------------------------
+
+if (fastqc == "yes" ) {
+
+    sys module load fastqc
+    
+    string fastqcFiles = ''
+
+    for ( string fq : fastqDir.dir("*fastq.gz") ) {
+        #string fqFile = fq.baseName()
+        fastqcFiles += " "+fq 
+    }
+
+    task fastqc -o $fastqcReport -f fastq $fastqcFiles
+    
+}
+
+#------------------------------
+# Nesoni clip
+#------------------------------
+
+if (clip == "yes" ) {
+    for (string fq : fastqDir.dir("*fastq.gz") ) {
+        task echo nesoni clip: --quality 28 --length 30 <prefix> reads
+    }
+}
+
+#------------------------------
+# BWA alignment
+#------------------------------
+
+if (bwa == "yes") {
+
+    for (string fq : fastqDir.dir("*fq.gz") ) {
+    
+        string fqName = fq.baseName()
+        string samIndexFile = bamFiles+"/"+fqName.swapExt("fq.gz", "sai")
+        string samFile = samIndexFile.swapExt("sai", "sam")
+        string bamFile = samFile.swapExt("sam", "bam")
+        string bamSortedPrefix = bamFile.swapExt(".bam", "_sorted")
+        string bamSortedFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam")
+        string bamIndexFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam.bai")
+    
+        #sys bwa aln -t 4 $genomeIndex $fq \
+        #     | bwa samse $genomeIndex - $fq \
+        #     | samtools view -b - \
+        #     | samtools sort -@ 4 - $bamSortedPrefix
+    
+        task (samIndexFile <- fq) {
+            sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
+        } 
+    
+        task (samFile <- samIndexFile) {
+            sys bwa samse $genomeIndex $samIndexFile $fq > $samFile
+        }
+    
+        task (bamFile <- samFile) {
+            sys samtools view -b $samFile > $bamFile 
+        }
+        
+        task (bamSortedFile <- bamFile) {
+            sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+        }
+    
+        task (bamIndexFile <- bamSortedFile) {
+            sys samtools index $bamSortedFile
+        }
+    }
+}
 
 #------------------------------
 # STAR alignment 
