@@ -54,6 +54,37 @@ string bwa            help select if you would like to use bwa aligner
 #----------------------------------------------------------------------------------------------------
 
 #------------------------------
+# Make directories as required
+#------------------------------
+
+#----------------------------------------------------------------------------------------------------
+string bamFiles = "bamFiles"
+string preqcBamFiles = "preqcBamFiles"
+#string strandedReverse = "strandedReverse"
+#string strandedNo = "strandedNo"
+string featureNo = "featureNo"
+string featureReverse = "featureReverse"
+string fastqcReport = "fastqcReport"
+string clippedFastq = "clippedFastq"
+
+if( ( !bamFiles.exists() ) && ( !star.isEmpty() ) ) bamFiles.mkdir()
+
+if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
+
+if( ( !clippedFastq.exists() ) && ( !clip.isEmpty() ) ) clippedFastq.mkdir()
+
+#if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
+#    strandedReverse.mkdir()
+#    strandedNo.mkdir()
+#}
+if( (!featureNo.exists()) && (!count.isEmpty()) ) featureNo.mkdir()
+
+if( (!featureReverse.exists()) && (!count.isEmpty()) ) featureReverse.mkdir()
+
+if( (!fastqcReport.exists()) && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
+#----------------------------------------------------------------------------------------------------
+
+#------------------------------
 # Sanity check
 #------------------------------
 
@@ -76,7 +107,7 @@ if( !bwa.isEmpty() ) {
 
     check4input = "populated"   
     if( ( bwa != "yes" ) && ( bwa != "no" ) ) error "Usage: -bwa yes or no"
-    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
+    if( fastqDir.isEmpty() ) error "Usage: -fastqDir /path/to/fastq_reads/"
     if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
 }
 #----------------------------------------------------------------------------------------------------
@@ -101,39 +132,8 @@ if( !prePro.isEmpty() ) {
     if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
     if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
 }
-#----------------------------------------------------------------------------------------------------
-#if( threads.isEmpty() ) threads = 1
-#----------------------------------------------------------------------------------------------------
+
 if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
-#----------------------------------------------------------------------------------------------------
-
-#------------------------------
-# Make directories as required
-#------------------------------
-#
-string bamFiles = "bamFiles"
-string preqcBamFiles = "preqcBamFiles"
-#string strandedReverse = "strandedReverse"
-#string strandedNo = "strandedNo"
-string featureNo = "featureNo"
-string featureReverse = "featureReverse"
-string fastqcReport = "fastqcReport"
-
-if( ( !bamFiles.exists() ) && ( !star.isEmpty() ) ) bamFiles.mkdir()
-
-if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
-
-#if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
-#    strandedReverse.mkdir()
-#    strandedNo.mkdir()
-#}
-#----------------------------------------------------------------------------------------------------
-# temp section
-
-if( !featureNo.exists() && (!count.isEmpty()) ) featureNo.mkdir()
-if( !featureReverse.exists() && (!count.isEmpty()) ) featureReverse.mkdir()
-#----------------------------------------------------------------------------------------------------
-if( !fastqcReport.exists() && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
 #----------------------------------------------------------------------------------------------------
 
 #------------------------------
@@ -159,9 +159,21 @@ if (fastqc == "yes" ) {
 # Nesoni clip
 #------------------------------
 
-if (clip == "yes" ) {
-    for (string fq : fastqDir.dir("*fastq.gz") ) {
-        task echo nesoni clip: --quality 28 --length 30 <prefix> reads
+if (clip == "yes") {
+    for (string fq : fastqDir.dir("*fq") ) {
+
+        string preFix = fq.baseName(".fq")
+        string outPut = preFix+"_single.fq.gz"
+        #print("$preFix $outPut\n")
+        task (outPut <- fq) {
+            sys nesoni clip: --qoffset 64 \
+                             --quality 28 \
+                             --length 15 \
+                             $preFix \
+                       reads: $fq
+            sys mv $outPut clippedFastq
+        }
+         
     }
 }
 
@@ -170,6 +182,8 @@ if (clip == "yes" ) {
 #------------------------------
 
 if (bwa == "yes") {
+
+    if( (!fastqDir.isEmpty()) && (clip == "yes") ) fastqDir = clippedFastq
 
     for (string fq : fastqDir.dir("*fq.gz") ) {
     
