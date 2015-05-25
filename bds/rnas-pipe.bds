@@ -67,7 +67,7 @@ string featureReverse = "featureReverse"
 string fastqcReport = "fastqcReport"
 string clippedFastq = "clippedFastq"
 
-if( ( !bamFiles.exists() ) && ( !star.isEmpty() ) ) bamFiles.mkdir()
+if( ( !bamFiles.exists() ) && ( (!star.isEmpty()) || (!bwa.isEmpty()) ) ) bamFiles.mkdir()
 
 if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
 
@@ -139,54 +139,50 @@ if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
 #------------------------------
 # fastQC report
 #------------------------------
-
 if (fastqc == "yes" ) {
 
     sys module load fastqc
-    
     string fastqcFiles = ''
 
     for ( string fq : fastqDir.dir("*fastq.gz") ) {
-        #string fqFile = fq.baseName()
         fastqcFiles += " "+fq 
     }
 
     task fastqc -o $fastqcReport -f fastq $fastqcFiles
-    
 }
 
 #------------------------------
 # Nesoni clip
 #------------------------------
-
 if (clip == "yes") {
     for (string fq : fastqDir.dir("*fq") ) {
 
         string preFix = fq.baseName(".fq")
-        string outPut = preFix+"_single.fq.gz"
-        #print("$preFix $outPut\n")
-        task (outPut <- fq) {
+        string outPut = clippedFastq+"/"+preFix+"_single.fq.gz"
+        string logFile = clippedFastq+"/"+preFix+"_log.txt"
+        string allFiles = preFix+"*"
+        #print("$preFix $outPut $check\n")
+        task ([outPut, logFile] <- fq) {
             sys nesoni clip: --qoffset 64 \
                              --quality 28 \
                              --length 15 \
                              $preFix \
-                       reads: $fq
-            sys mv $outPut clippedFastq
+                       reads: $fq 
+            sys mv $allFiles clippedFastq
+            #sys mv $outPut $logFile clippedFastq
         }
-         
     }
 }
 
 #------------------------------
 # BWA alignment
 #------------------------------
-
 if (bwa == "yes") {
 
     if( (!fastqDir.isEmpty()) && (clip == "yes") ) fastqDir = clippedFastq
 
     for (string fq : fastqDir.dir("*fq.gz") ) {
-    
+
         string fqName = fq.baseName()
         string samIndexFile = bamFiles+"/"+fqName.swapExt("fq.gz", "sai")
         string samFile = samIndexFile.swapExt("sai", "sam")
@@ -194,31 +190,37 @@ if (bwa == "yes") {
         string bamSortedPrefix = bamFile.swapExt(".bam", "_sorted")
         string bamSortedFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam")
         string bamIndexFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam.bai")
+
+        #print("$fqName $samFile $samIndexFile $bamFile $bamSortedFile \n")
     
         #sys bwa aln -t 4 $genomeIndex $fq \
         #     | bwa samse $genomeIndex - $fq \
         #     | samtools view -b - \
         #     | samtools sort -@ 4 - $bamSortedPrefix
     
-        task (samIndexFile <- fq) {
+        task ([bamSortedFile, bamIndexFile] <- fq) {
             sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
+            sys bwa samse $genomeIndex $samIndexFile $fq | \
+                samtools view -S -b - > $bamFile
+            sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+            sys samtools index $bamSortedFile
         } 
     
-        task (samFile <- samIndexFile) {
-            sys bwa samse $genomeIndex $samIndexFile $fq > $samFile
-        }
+        #task (samFile <- samIndexFile) {
+        #    sys bwa samse $genomeIndex $samIndexFile $fq > $samFile
+        #}
     
-        task (bamFile <- samFile) {
-            sys samtools view -b $samFile > $bamFile 
-        }
-        
-        task (bamSortedFile <- bamFile) {
-            sys samtools sort -@ 4 $bamFile $bamSortedPrefix
-        }
+        #task (bamFile <- samFile) {
+        #    sys samtools view -b $samFile > $bamFile 
+        #}
+        #
+        #task (bamSortedFile <- bamFile) {
+        #    sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+        #}
     
-        task (bamIndexFile <- bamSortedFile) {
-            sys samtools index $bamSortedFile
-        }
+        #task (bamIndexFile <- bamSortedFile) {
+        #    sys samtools index $bamSortedFile
+        #}
     }
 }
 
