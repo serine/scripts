@@ -1,0 +1,72 @@
+#! /usr/bin/env bds
+#----------------------------------------------------------------------------------------------------
+# Standalone htseq-count pipe
+#----------------------------------------------------------------------------------------------------
+#------------------------------
+# help menu
+#------------------------------
+
+string check4input
+string check
+string count          help Select if you would like to count reads. Options: yes or no
+string gtfFile        help path to the directory with gtf file
+string bamFiles       help path to the directory with bam files
+
+#----------------------------------------------------------------------------------------------------
+#
+# Main
+#
+#----------------------------------------------------------------------------------------------------
+
+#------------------------------
+# Sanity check
+#------------------------------
+#
+#----------------------------------------------------------------------------------------------------
+if( !count.isEmpty() ) {
+
+    check4input = "populated"   
+    if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
+    if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
+    if( bamFiles.isEmpty() ) error "Usage: -bamFiles /path/to/bamFiles_directory"
+}
+#----------------------------------------------------------------------------------------------------
+if( check4input.isEmpty() ) sys ~/scripts/bds/htseqCount.bds --help
+#----------------------------------------------------------------------------------------------------
+
+string strandedNo = "strandedNo"
+string strandedReverse = "strandedReverse"
+
+if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
+    strandedReverse.mkdir()
+    strandedNo.mkdir()
+}
+#----------------------------------------------------------------------------------------------------
+
+
+#------------------------------
+# htseq-count 
+#------------------------------
+
+if ( count == "yes" ) {
+    for (string bamFile : bamFiles.dir("*bam") ) {
+
+        string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+
+        task ( reverseStranded <- bamFile ) {
+            sys htseq-count --quiet \
+                            --stranded=reverse \
+                            --format=bam \
+                            $bamFile $gtfFile > $reverseStranded
+        }
+
+        string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+
+        task ( noStranded <- bamFile ) {
+            sys htseq-count --quiet \
+                            --stranded=no \
+                            --format=bam \
+                            $bamFile $gtfFile > $noStranded
+        }
+    }
+}
