@@ -45,6 +45,8 @@ string fastaRef       help path to the reference fasta file, required when doing
 string fastqc         help select if you would like to run fastQC report on the files
 string clip           help select if you would like to trim your fastq files before processing further
 string bwa            help select if you would like to use bwa aligner
+string pattern
+string extn
 #int threads              help specify number of threads to use per signle STAR run. If you are running several alignments in parallel be wise not to over subscribe the threads
 
 #----------------------------------------------------------------------------------------------------
@@ -155,21 +157,26 @@ if (fastqc == "yes" ) {
 # Nesoni clip
 #------------------------------
 if (clip == "yes") {
-    for (string fq : fastqDir.dir("*fq") ) {
+    string{} fqFiles = fqGet(fastqDir, pattern, extn)
+    for(string fq : fqFiles.keys()) {
+        string mapValue = fqFiles{fq}
+        string[] reads = mapValue.split(",")
+        string readOne = reads[1]
+        string readOnePair = readOne.swapExt("_R1_002.fastq.gz", "_R2_002.fastq.gz")
+        string readTwo = reads[2]
+        string readTwoPair = readTwo.swapExt("_R1_001.fastq.gz", "_R2_001.fastq.gz")
+        
+        string pairOne = readOne+' '+readOnePair 
+        string pairTwo = readTwo+' '+readTwoPair 
 
-        string preFix = clippedFastq+"/"+fq.baseName(".fq")
+        string preFix = clippedFastq+"/"+fq
         string outPut = clippedFastq+"/"+preFix+"_single.fq.gz"
         string logFile = clippedFastq+"/"+preFix+"_log.txt"
-        #string allFiles = preFix+"*"
-        #print("$preFix $outPut $check\n")
-        task ([outPut, logFile] <- fq) {
-            sys nesoni clip: --qoffset 64 \
-                             --quality 28 \
-                             --length 15 \
+
+        task ([outPut, logFile] <- [readOne, readTwo]) {
+            sys nesoni clip: --quality 28 \
                              $preFix \
-                       reads: $fq 
-            #sys mv $allFiles clippedFastq
-            #sys mv $outPut $logFile clippedFastq
+                       pairs: $pairOne pairs: $pairTwo
         }
     }
 }
@@ -417,3 +424,23 @@ if ( count == "yes" ) {
 #------------------------------
 # End
 #------------------------------
+
+#------------------------------
+# Functions
+#------------------------------
+string{} fqGet(string fastqDir, string pattern, string extn) {
+    string{} uniqueNamesMap 
+    for(string fq : fastqDir.dir("$extn")) {
+         string getR1Index = fq.lastIndexOf("R1") 
+         if(getR1Index != -1) {
+             string[] getFile = fq.split("$pattern")
+             string rootName = getFile[0].baseName()
+             if(!uniqueNamesMap.hasKey(rootName)) {
+                 uniqueNamesMap{rootName} = ''
+             }
+             uniqueNamesMap{rootName} += ","+fq
+         }
+    }
+    return uniqueNamesMap
+}
+#----------------------------------------------------------------------------------------------------
