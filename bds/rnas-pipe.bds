@@ -157,10 +157,10 @@ if (fastqc == "yes" ) {
 if (clip == "yes") {
     for (string fq : fastqDir.dir("*fq") ) {
 
-        string preFix = fq.baseName(".fq")
+        string preFix = clippedFastq+"/"+fq.baseName(".fq")
         string outPut = clippedFastq+"/"+preFix+"_single.fq.gz"
         string logFile = clippedFastq+"/"+preFix+"_log.txt"
-        string allFiles = preFix+"*"
+        #string allFiles = preFix+"*"
         #print("$preFix $outPut $check\n")
         task ([outPut, logFile] <- fq) {
             sys nesoni clip: --qoffset 64 \
@@ -168,7 +168,7 @@ if (clip == "yes") {
                              --length 15 \
                              $preFix \
                        reads: $fq 
-            sys mv $allFiles clippedFastq
+            #sys mv $allFiles clippedFastq
             #sys mv $outPut $logFile clippedFastq
         }
     }

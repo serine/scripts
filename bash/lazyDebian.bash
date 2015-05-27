@@ -21,6 +21,7 @@ ESSENTIALS=(ubuntu-restricted-extras \
             mosh \
 	    htop \
 	    dconf-editor \
+	    libgnome2-bin \
 	   )
 
 GETRIDOFF=(rhythmbox \
