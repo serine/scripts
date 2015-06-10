@@ -1,0 +1,83 @@
+string fq, fqDir, fqRegex
+
+#print getExtn(fq)
+print getFilesMap(fq)
+#pritn getUniqueFqs(fqDir, fqRegex)
+#print getMajorExtn(fqDir)
+
+#---------------
+# Assumptions
+#---------------
+# - all files in the directory have one extention
+
+
+#------------------------------
+# global variables
+#------------------------------
+
+#extn = getExtn(#)
+#---------------
+# Get extention
+#---------------
+string getExtn(string file) {
+    string extn = file.extName()
+    if(extn == "gz") {
+        string tmpFile = file.removeExt()
+        extn = tmpFile.extName()
+        if(extn == "fastq") return "fastq.gz"
+        if(extn == "fq") return "fq.gz"
+    }
+    if(extn == "fastq") return "fastq"
+    if(extn == "fq") return "fq"
+}
+
+#------------------------------------------------------------
+# Iterate over a directory and return a hash with fastq files
+#------------------------------------------------------------
+string{} getFilesMap(string filesDir) {
+    string{} filesMap
+    for(string file : filesDir.dir()) {
+        string extn = getExtn(file)
+        if(!filesMap.hasKey(extn)) filesMap{extn}=""
+        filesMap{extn}+=file+","
+    }
+    return filesMap
+}
+
+#------------------------------
+# Get list of 
+#------------------------------
+#string[] getFqslist(string fqDir) {
+#    string{} uniqueNamesMap 
+#
+#    string{} filesMap = getFilesMap(fqDir)
+#    for(string fqKey : filesMap.keys()) {
+#        string preFqs = filesMap{fqKey}
+#        string[] fqs = preFqs.split(",")
+#        
+#        for(string fq : fqs) {
+#            if fq.endsWith(extn)
+#        } 
+#        string getR1Index = fq.lastIndexOf("R1") 
+#        if(getR1Index != -1) {
+#            string[] getFile = fq.split("$fqRegex")
+#            string rootName = getFile[0].baseName()
+#            if(!uniqueNamesMap.hasKey(rootName)) {
+#                uniqueNamesMap{rootName} = ''
+#            }
+#            uniqueNamesMap{rootName} += ","+fq
+#        }
+#    }
+#    #return uniqueNamesMap
+#}
+
+string{} getMajorExtn(string fqDir) {
+    string{} extnCountMap  
+    int count = 0
+    for(string file : fqDir.dir()) {
+        string extn = getExtn(file)
+        if(!extnCountMap.hasKey(extn)) extnCountMap{extn}=0
+        extnCountMap{extn}+= +1
+    }
+    return extnCountMap
+}
