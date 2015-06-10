@@ -1,4 +1,5 @@
 #! /usr/bin/env bds
+
 #----------------------------------------------------------------------------------------------------
 #
 #  Map Reads to the reference genome
@@ -33,10 +34,9 @@
 #  Input Parametrs
 #----------------------------------------------------------------------------------------------------
 #sys sleep 40
-
 string check4input 
-string star           help select if you would like to run star. Options: yes or no
-string fastqDir       help path to the directory with fastq file       
+bool star           help select if you would like to run star. Options: yes or no
+string fqDir       help path to the directory with fastq file       
 string genomeIndex    help path to the directory with genome index for the coresponding species
 string count          help Select if you would like to count reads. Options: yes or no
 string gtfFile        help path to the directory with gtf file
@@ -45,10 +45,20 @@ string fastaRef       help path to the reference fasta file, required when doing
 string fastqc         help select if you would like to run fastQC report on the files
 string clip           help select if you would like to trim your fastq files before processing further
 string bwa            help select if you would like to use bwa aligner
-string pattern
+string fqRegex
 string extn
 #int threads              help specify number of threads to use per signle STAR run. If you are running several alignments in parallel be wise not to over subscribe the threads
 
+#----------------------------------------
+# Temp section
+#----------------------------------------
+
+#string regexOne = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
+#string regexTwo = "_L[0-9]{3}_R[0-9].fastq.gz$"
+#if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
+#if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9].fastq.gz$"
+if(fqRegex.isEmpty()) fqRegex = "_R[0-9]_[0-9]{3}.fastq.gz$"
+if(extn.isEmpty()) extn = "*fastq.gz"
 #----------------------------------------------------------------------------------------------------
 #
 # Main
@@ -69,20 +79,16 @@ string featureReverse = "featureReverse"
 string fastqcReport = "fastqcReport"
 string clippedFastq = "clippedFastq"
 
-if( ( !bamFiles.exists() ) && ( (!star.isEmpty()) || (!bwa.isEmpty()) ) ) bamFiles.mkdir()
-
-if( ( !preqcBamFiles.exists() ) && ( !prePro.isEmpty() ) ) preqcBamFiles.mkdir()
-
-if( ( !clippedFastq.exists() ) && ( !clip.isEmpty() ) ) clippedFastq.mkdir()
-
+if(!bamFiles.exists() && !star) bamFiles.mkdir()
+#if((!bamFiles.exists() && !star) || (!bwa.isEmpty())) bamFiles.mkdir()
+if((!preqcBamFiles.exists()) && (!prePro.isEmpty())) preqcBamFiles.mkdir()
+if((!clippedFastq.exists()) && (!clip.isEmpty())) clippedFastq.mkdir()
 #if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
 #    strandedReverse.mkdir()
 #    strandedNo.mkdir()
 #}
 if( (!featureNo.exists()) && (!count.isEmpty()) ) featureNo.mkdir()
-
 if( (!featureReverse.exists()) && (!count.isEmpty()) ) featureReverse.mkdir()
-
 if( (!fastqcReport.exists()) && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
 #----------------------------------------------------------------------------------------------------
 
@@ -91,52 +97,46 @@ if( (!fastqcReport.exists()) && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
 #------------------------------
 
 #----------------------------------------------------------------------------------------------------
-if( !fastqc.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( fastqc != "yes" ) && ( fastqc != "no" ) ) error "Usage: -fastqc yes or no"
-    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
-}
-#----------------------------------------------------------------------------------------------------
-if( !clip.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( clip != "yes" ) && ( clip != "no" ) ) error "Usage: -clip yes or no"
-    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
-}
-#----------------------------------------------------------------------------------------------------
-if( !bwa.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( bwa != "yes" ) && ( bwa != "no" ) ) error "Usage: -bwa yes or no"
-    if( fastqDir.isEmpty() ) error "Usage: -fastqDir /path/to/fastq_reads/"
-    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
-}
-#----------------------------------------------------------------------------------------------------
-if( !star.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( star != "yes" ) && ( star != "no" ) ) error "Usage: -star yes or no"
-    if( fastqDir.isEmpty() )  error "Usage: -fastqDir /path/to/fastq_reads/"
-    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
-}
-#----------------------------------------------------------------------------------------------------
-if( !count.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
-    if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
-}
-#----------------------------------------------------------------------------------------------------
-if( !prePro.isEmpty() ) {
-
-    check4input = "populated"   
-    if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
-    if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
-}
-
-if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
-#----------------------------------------------------------------------------------------------------
+#if( !fastqc.isEmpty() ) {
+#    check4input = "populated"   
+#    if( ( fastqc != "yes" ) && ( fastqc != "no" ) ) error "Usage: -fastqc yes or no"
+#    if(fqDir.isEmpty())  error "Usage: -fqDir /path/to/fastq_reads/"
+#}
+##----------------------------------------------------------------------------------------------------
+#if( !clip.isEmpty() ) {
+#    check4input = "populated"   
+#    if( ( clip != "yes" ) && ( clip != "no" ) ) error "Usage: -clip yes or no"
+#    if( fqDir.isEmpty() )  error "Usage: -fqDir /path/to/fastq_reads/"
+#}
+##----------------------------------------------------------------------------------------------------
+#if( !bwa.isEmpty() ) {
+#    check4input = "populated"   
+#    if( ( bwa != "yes" ) && ( bwa != "no" ) ) error "Usage: -bwa yes or no"
+#    if( fqDir.isEmpty() ) error "Usage: -fqDir /path/to/fastq_reads/"
+#    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
+#}
+##----------------------------------------------------------------------------------------------------
+#if(!star.isEmpty()) {
+#    check4input = "populated"   
+#    if( ( star != "yes" ) && ( star != "no" ) ) error "Usage: -star yes or no"
+#    if( fqDir.isEmpty() )  error "Usage: -fqDir /path/to/fastq_reads/"
+#    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
+#}
+##----------------------------------------------------------------------------------------------------
+#if( !count.isEmpty() ) {
+#    check4input = "populated"   
+#    if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
+#    if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
+#}
+##----------------------------------------------------------------------------------------------------
+#if( !prePro.isEmpty() ) {
+#    check4input = "populated"   
+#    if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
+#    if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
+#}
+#
+#if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
+##----------------------------------------------------------------------------------------------------
 
 #------------------------------
 # fastQC report
@@ -146,7 +146,7 @@ if (fastqc == "yes" ) {
     sys module load fastqc
     string fastqcFiles = ''
 
-    for ( string fq : fastqDir.dir("*fastq.gz") ) {
+    for ( string fq : fqDir.dir("*fastq.gz") ) {
         fastqcFiles += " "+fq 
     }
 
@@ -156,78 +156,62 @@ if (fastqc == "yes" ) {
 #------------------------------
 # Nesoni clip
 #------------------------------
-if (clip == "yes") {
-    string{} fqFiles = fqGet(fastqDir, pattern, extn)
-    for(string fq : fqFiles.keys()) {
-        string mapValue = fqFiles{fq}
-        string[] reads = mapValue.split(",")
-        string readOne = reads[1]
-        string readOnePair = readOne.swapExt("_R1_002.fastq.gz", "_R2_002.fastq.gz")
-        string readTwo = reads[2]
-        string readTwoPair = readTwo.swapExt("_R1_001.fastq.gz", "_R2_001.fastq.gz")
-        
-        string pairOne = readOne+' '+readOnePair 
-        string pairTwo = readTwo+' '+readTwoPair 
-
-        string preFix = clippedFastq+"/"+fq
-        string outPut = clippedFastq+"/"+preFix+"_single.fq.gz"
-        string logFile = clippedFastq+"/"+preFix+"_log.txt"
-
-        task ([outPut, logFile] <- [readOne, readTwo]) {
-            sys nesoni clip: --quality 28 \
-                             $preFix \
-                       pairs: $pairOne pairs: $pairTwo
-        }
-    }
-}
+#if (clip == "yes") {
+#    string{} fqFiles = fqGet(fqDir, fqRegex, extn)
+#    for(string fq : fqFiles.keys()) {
+#        string mapValue = fqFiles{fq}
+#        string[] reads = mapValue.split(",")
+#        string readOne = reads[1]
+#        string readOnePair = readOne.swapExt("_R1_002.fastq.gz", "_R2_002.fastq.gz")
+#        string readTwo = reads[2]
+#        string readTwoPair = readTwo.swapExt("_R1_001.fastq.gz", "_R2_001.fastq.gz")
+#        
+#        string pairOne = readOne+' '+readOnePair 
+#        string pairTwo = readTwo+' '+readTwoPair 
+#
+#        string preFix = clippedFastq+"/"+fq
+#        string outPut = preFix+"_single.fq.gz"
+#        string logFile = preFix+"_log.txt"
+#
+#        task ([outPut, logFile] <- [readOne, readTwo]) {
+#            sys nesoni clip: --quality 28 \
+#                             --out-separate yes \
+#                             $preFix \
+#                       pairs: $pairOne pairs: $pairTwo
+#        }
+#    }
+#}
 
 #------------------------------
 # BWA alignment
 #------------------------------
 if (bwa == "yes") {
 
-    if( (!fastqDir.isEmpty()) && (clip == "yes") ) fastqDir = clippedFastq
+    if( (!fqDir.isEmpty()) && (clip == "yes") ) fqDir = clippedFastq
 
-    for (string fq : fastqDir.dir("*fq.gz") ) {
-
+    for(string fq : fqDir.dir("*R1.fq.gz")) {
         string fqName = fq.baseName()
-        string samIndexFile = bamFiles+"/"+fqName.swapExt("fq.gz", "sai")
-        string samFile = samIndexFile.swapExt("sai", "sam")
-        string bamFile = samFile.swapExt("sam", "bam")
+        string bamFile = bamFiles+"/"+fqName.swapExt("fq.gz", "bam")
         string bamSortedPrefix = bamFile.swapExt(".bam", "_sorted")
         string bamSortedFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam")
         string bamIndexFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam.bai")
-
-        #print("$fqName $samFile $samIndexFile $bamFile $bamSortedFile \n")
+        string pair = fq.swapExt("_R1.fq.gz", "_R2.fq.gz")
+        #print("$fqName $bamFile $bamSortedFile \n")
     
-        #sys bwa aln -t 4 $genomeIndex $fq \
-        #     | bwa samse $genomeIndex - $fq \
-        #     | samtools view -b - \
-        #     | samtools sort -@ 4 - $bamSortedPrefix
-    
+        #task ([bamSortedFile, bamIndexFile] <- fq) {
+        #    sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
+        #    sys bwa samse $genomeIndex $samIndexFile $fq | \
+        #        samtools view -S -b - > $bamFile
+        #    sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+        #    sys samtools index $bamSortedFile
+        #} 
+        
         task ([bamSortedFile, bamIndexFile] <- fq) {
-            sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
-            sys bwa samse $genomeIndex $samIndexFile $fq | \
+            sys bwa mem -t 5 $genomeIndex $fq $pair | \
                 samtools view -S -b - > $bamFile
             sys samtools sort -@ 4 $bamFile $bamSortedPrefix
             sys samtools index $bamSortedFile
-        } 
-    
-        #task (samFile <- samIndexFile) {
-        #    sys bwa samse $genomeIndex $samIndexFile $fq > $samFile
-        #}
-    
-        #task (bamFile <- samFile) {
-        #    sys samtools view -b $samFile > $bamFile 
-        #}
-        #
-        #task (bamSortedFile <- bamFile) {
-        #    sys samtools sort -@ 4 $bamFile $bamSortedPrefix
-        #}
-    
-        #task (bamIndexFile <- bamSortedFile) {
-        #    sys samtools index $bamSortedFile
-        #}
+        }
     }
 }
 
@@ -235,101 +219,31 @@ if (bwa == "yes") {
 # STAR alignment 
 #------------------------------
 
-if ( star == "yes" ) {
-
-#----------------------------------------------------------------------
-# Put all reads with unique root name into a hash under root key
-#----------------------------------------------------------------------
-    # Map with unique root key
-    string{} uniqueNamesMap 
-    
-    for (string fq : fastqDir.dir() ) {
-         # make sure we have fastq files only
-         if ( fq.endsWith(".fastq.gz") ) {
-    
-             string getR1Index = fq.lastIndexOf("R1") 
-             
-             if ( getR1Index != -1 ) {
-                 # get the root of the file name with regex
-                 string[] getFile = fq.split("_L[0-9]{3}_R[0-9].fastq.gz$")
-                 string rootName = getFile[0]
-    
-                 if ( !uniqueNamesMap.hasKey(rootName) ) {
-                     # append to the list if it isn't in the list already
-                     uniqueNamesMap{rootName} = ''
-                 }
-                 uniqueNamesMap{rootName} += ","+fq
-             }
-         }       
-    }
-#------------------------------
-# Execution of STAR
-#------------------------------
+#--------------
+# Notes
+#--------------
+# - set the default file extension, most common e.g default: fastq.gz. Then user can change through optional
+#   flag if they want
+# - set the default regex for unique name identification and give user and option to specify different file
+#   extension
+# - remember to add .dirPath()
+if(star) {
+    string{} uniqueNamesMap = getUniqueNames(fqDir)
     #loop over each key in the map
-    for (string fqread : uniqueNamesMap.keys() ) {
-        #---------------------------------------------
-        # define banch of empty variables for later use
-        string[] listR1
-        string[] listR2
-        string[] laneList
-
-        string read1 
-        string read2
-        string lanes
-
-        string preFix
-        #---------------------------------------------
-        
-        # get value for each key 
+    for(string fqread : uniqueNamesMap.keys()) {
+        # get value for each key and break values into list
         string mapValue = uniqueNamesMap{fqread} 
-        # break the values into list
-        # side effect of BDS
         string[] getList = mapValue.split(",")
-        # this is length of the list
-        # -1, because there is an extra comma in the
-        # value list. side effect of BDS
-        int getListSize = getList.size()-1
-
-        # loop over each item in the getList
-        for ( int i : range(1,getListSize) ) {
-            # get fastq reads and get it pair 
-            string singleRead = getList[i]
-            string pairedEnd = singleRead.swapExt("R1.fastq.gz", "R2.fastq.gz")
-            # exctract lanes information from the file name
-            string[] tmpLane = singleRead.split("_")
-            string tmpLane2 = tmpLane.pop()
-            string getLane = tmpLane.pop()
-
-            listR1.add(singleRead)
-            listR2.add(pairedEnd)
-            laneList.add(getLane)
-
-            # concatenate for STAR usage 
-            read1 = listR1.join(",")
-            read2 = listR2.join(",")
-            lanes = laneList.join(",")
-        }
-        # get file name pre fix for STAR naming 
-        if ( preFix.isEmpty() ) preFix = bamFiles+"/"+fqread+"_"
-
-        #string bamOut = preFix+"Aligned.out.bam"
-        #task ( bamOut <- [read1, read2] ) {
-        task STAR --runThreadN 28 \
-                  --genomeDir $genomeIndex \
-                  --outSAMtype BAM Unsorted \
-                  --outSAMattrRGline ID:$lanes CN:Unknown DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$fqread \
-                  --outSAMunmapped Within \
-                  --readFilesCommand zcat \
-                  --readFilesIn $read1 $read2 \
-                  --outFileNamePrefix $preFix
-        wait
+        string reads = getSTARreads(getList)
+        string bamFile = mapSTAR(genomeIndex, reads, fqread) 
     }
 }
+
 #----------------------------------------------------------------------
 # piacrd secssion for bam file preprocessing for RNA-SeQC report
 #----------------------------------------------------------------------
 
-if ( prePro == "yes" ) {
+if(prePro == "yes") {
    # loop over bamFiles directory.
    # only interested in bam files
     for ( string bamFile : bamFiles.dir("*bam") ) {
@@ -401,9 +315,7 @@ if ( prePro == "yes" ) {
 #------------------------------
 
 if ( count == "yes" ) {
-
     for (string bamFile : bamFiles.dir("*bam") ) {
-    
         string reverseFeature = featureReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
         task (reverseFeature <- bamFile) {
             sys featureCounts -a $gtfFile \
@@ -428,19 +340,79 @@ if ( count == "yes" ) {
 #------------------------------
 # Functions
 #------------------------------
-string{} fqGet(string fastqDir, string pattern, string extn) {
+string{} getUniqueNames(string fqDir) {
+    # Map with unique root key
     string{} uniqueNamesMap 
-    for(string fq : fastqDir.dir("$extn")) {
-         string getR1Index = fq.lastIndexOf("R1") 
-         if(getR1Index != -1) {
-             string[] getFile = fq.split("$pattern")
-             string rootName = getFile[0].baseName()
-             if(!uniqueNamesMap.hasKey(rootName)) {
-                 uniqueNamesMap{rootName} = ''
-             }
-             uniqueNamesMap{rootName} += ","+fq
-         }
+    for(string fq : fqDir.dir(extn)) {
+        # make sure we have fastq files only
+        string getR1Index = fq.lastIndexOf("R1") 
+        if(getR1Index != -1) {
+            # get the root of the file name with regex
+            string[] getFile = fq.split(fqRegex)
+            string rootName = getFile[0]
+            # append to the list if it isn't in the list already
+            if(!uniqueNamesMap.hasKey(rootName)) uniqueNamesMap{rootName}=""
+            uniqueNamesMap{rootName}+=fq+","
+        }
     }
     return uniqueNamesMap
+}
+
+string getSTARreads(string[] readsList) {
+
+    string[] listR1, listR2, laneList
+    string read1, read2, lanes, preFix
+
+    int getListSize = readsList.size()-1
+    for(int i : range(0,getListSize)) {
+        # get fastq reads and get it pair 
+        string singleRead = readsList[i]
+        string[] getLastBit = singleRead.split("R1")
+        string lastBit = getLastBit.pop()
+        string rOne = "R1"+lastBit
+        string rTwo = "R2"+lastBit
+        string pairedEnd = singleRead.swapExt(rOne, rTwo)
+        bool checkPair = pairedEnd.isFile()
+        # exctract lanes information from the file name
+        #string[] tmpLane = singleRead.split("_")
+        #string tmpLane2 = tmpLane.pop()
+        #string getLane = tmpLane.pop()
+        if(checkPair){
+            listR1.add(singleRead)
+            listR2.add(pairedEnd)
+            #laneList.add(getLane)
+            # concatenate for STAR usage 
+            read1 = listR1.join(",")
+            read2 = listR2.join(",")
+            #lanes = laneList.join(",")
+            return "$read1 $read2"
+        }
+        else{
+            listR1.add(singleRead)
+            read1 = listR1.join(",")
+            return read1
+        }
+    }
+}
+
+string mapSTAR(string genomeIndex, string reads, string rootName) {
+   
+    string preFix = bamFiles+"/"+rootName.baseName()+"_"
+    string bamOut = preFix+"Aligned.out.bam"
+    task(bamOut <- reads) {
+        sys STAR --runThreadN 28 \
+                  --genomeDir $genomeIndex \
+                  --outSAMtype BAM Unsorted \
+                  --outSAMunmapped Within \
+                  --readFilesCommand zcat \
+                  --readFilesIn $reads \
+                  --outFileNamePrefix $preFix
+    }
+    wait
+    # you can remove wait statement and reduce number of threads
+    # however this will run all your fastq files in parallel
+    # doing this I find a bit impractical on our server because of
+    # limited RAM - only 128 Gb
+    return bamOut
 }
 #----------------------------------------------------------------------------------------------------
