@@ -9,9 +9,8 @@
 #------------------------------
 #  Serine #MonashFlavour
 #------------------------------
-#
+
 #----------------------------------------------------------------------------------------------------
-#
 #  About STARmergeNalign.bds
 #
 #   -  run -h, -help, --help to get more help of the command line arguments
@@ -21,40 +20,40 @@
 #   -  auto matches paired end
 #   -  creates strandedNo and strandedReverse directories under the current directory and 
 #      performce read count using htseq-count outputting results in corresponding directories.
-
 #----------------------------------------------------------------------------------------------------
-#
 #  Usage:
 #
 #  1. STAR outputs all file into the current directory i.e the directory STAR was executed from.
 #  2. The best practise is to make new directory for your STARmergeNaling.bds run and execute
 #     STARmergeNalign.bds script within that directory.
-#  
 #----------------------------------------------------------------------------------------------------
 #  Input Parametrs
 #----------------------------------------------------------------------------------------------------
+
+helpUnsorted := true
+
 #sys sleep 40
-string check4input 
-bool star           help select if you would like to run star. Options: yes or no
+bool star          help flag if you like to align with STAR
 string fqDir       help path to the directory with fastq file       
-string genomeIndex    help path to the directory with genome index for the coresponding species
-string count          help Select if you would like to count reads. Options: yes or no
-string gtfFile        help path to the directory with gtf file
-string prePro         help Select if you would like to preprocess your bam files for RNA-SeQC run Options: yes or no
-string fastaRef       help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
-string fastqc         help select if you would like to run fastQC report on the files
-string clip           help select if you would like to trim your fastq files before processing further
-string bwa            help select if you would like to use bwa aligner
+string genomeIndex help path to the directory with genome index for the coresponding species
+bool count         help flag if you like to count reads with featureCount
+string gtfFile     help path to the directory with gtf file
+bool prePro        help flag if you like to preprocess your bam files -must for RNA-SeQC report
+string fastaRef    help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
+bool fastqc        help flag if you like to run fastQC report on the files
+bool clip          help flag if you like to trim your fastq files before processing further
+bool bwa           help flag if you like to use bwa aligner
 string fqRegex
 string extn
-#int threads              help specify number of threads to use per signle STAR run. If you are running several alignments in parallel be wise not to over subscribe the threads
+
+if( args.isEmpty() ) {
+    printHelp()
+    exit(1)
+}
 
 #----------------------------------------
-# Temp section
+# Default parameters
 #----------------------------------------
-
-#string regexOne = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
-#string regexTwo = "_L[0-9]{3}_R[0-9].fastq.gz$"
 #if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
 #if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9].fastq.gz$"
 if(fqRegex.isEmpty()) fqRegex = "_R[0-9]_[0-9]{3}.fastq.gz$"
@@ -72,24 +71,18 @@ if(extn.isEmpty()) extn = "*fastq.gz"
 #----------------------------------------------------------------------------------------------------
 string bamFiles = "bamFiles"
 string preqcBamFiles = "preqcBamFiles"
-#string strandedReverse = "strandedReverse"
-#string strandedNo = "strandedNo"
 string featureNo = "featureNo"
 string featureReverse = "featureReverse"
 string fastqcReport = "fastqcReport"
 string clippedFastq = "clippedFastq"
 
-if(!bamFiles.exists() && !star) bamFiles.mkdir()
-#if((!bamFiles.exists() && !star) || (!bwa.isEmpty())) bamFiles.mkdir()
-if((!preqcBamFiles.exists()) && (!prePro.isEmpty())) preqcBamFiles.mkdir()
-if((!clippedFastq.exists()) && (!clip.isEmpty())) clippedFastq.mkdir()
-#if( (!strandedReverse.exists()) && (!strandedNo.exists())  && (!count.isEmpty()) ) {
-#    strandedReverse.mkdir()
-#    strandedNo.mkdir()
-#}
-if( (!featureNo.exists()) && (!count.isEmpty()) ) featureNo.mkdir()
-if( (!featureReverse.exists()) && (!count.isEmpty()) ) featureReverse.mkdir()
-if( (!fastqcReport.exists()) && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
+if((!bamFiles.exists()) && (star)) bamFiles.mkdir()
+#if(!bamFiles.exists() && star) || (!bwa.isEmpty())) bamFiles.mkdir()
+if((!preqcBamFiles.exists()) && (prePro)) preqcBamFiles.mkdir()
+if((!clippedFastq.exists()) && (clip)) clippedFastq.mkdir()
+if((!featureNo.exists()) && (count)) featureNo.mkdir()
+if((!featureReverse.exists()) && (count)) featureReverse.mkdir()
+if((!fastqcReport.exists()) && (fastqc)) fastqcReport.mkdir()
 #----------------------------------------------------------------------------------------------------
 
 #------------------------------
@@ -97,91 +90,57 @@ if( (!fastqcReport.exists()) && (!fastqc.isEmpty()) ) fastqcReport.mkdir()
 #------------------------------
 
 #----------------------------------------------------------------------------------------------------
-#if( !fastqc.isEmpty() ) {
-#    check4input = "populated"   
-#    if( ( fastqc != "yes" ) && ( fastqc != "no" ) ) error "Usage: -fastqc yes or no"
-#    if(fqDir.isEmpty())  error "Usage: -fqDir /path/to/fastq_reads/"
-#}
-##----------------------------------------------------------------------------------------------------
-#if( !clip.isEmpty() ) {
-#    check4input = "populated"   
-#    if( ( clip != "yes" ) && ( clip != "no" ) ) error "Usage: -clip yes or no"
-#    if( fqDir.isEmpty() )  error "Usage: -fqDir /path/to/fastq_reads/"
-#}
-##----------------------------------------------------------------------------------------------------
-#if( !bwa.isEmpty() ) {
-#    check4input = "populated"   
-#    if( ( bwa != "yes" ) && ( bwa != "no" ) ) error "Usage: -bwa yes or no"
-#    if( fqDir.isEmpty() ) error "Usage: -fqDir /path/to/fastq_reads/"
-#    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
-#}
-##----------------------------------------------------------------------------------------------------
-#if(!star.isEmpty()) {
-#    check4input = "populated"   
-#    if( ( star != "yes" ) && ( star != "no" ) ) error "Usage: -star yes or no"
-#    if( fqDir.isEmpty() )  error "Usage: -fqDir /path/to/fastq_reads/"
-#    if( genomeIndex.isEmpty() )  error "Usage: -genomeIndex /path/to/genome_index/"
-#}
-##----------------------------------------------------------------------------------------------------
-#if( !count.isEmpty() ) {
-#    check4input = "populated"   
-#    if( ( count != "yes" ) && ( count != "no" ) ) error "Usage: -count yes or no"
-#    if( gtfFile.isEmpty() )  error "Usage: -gtfFile /path/to/gtf_file/"
-#}
-##----------------------------------------------------------------------------------------------------
-#if( !prePro.isEmpty() ) {
-#    check4input = "populated"   
-#    if( ( prePro != "yes" ) && ( prePro != "no" ) ) error "Usage: -prePro yes or no"
-#    if( fastaRef.isEmpty() ) error "Usage: -fastaRef /path/to/reference_fasta_file"
-#}
-#
-#if( check4input.isEmpty() ) sys ~/scripts/bds/rnas-pipe.bds --help
-##----------------------------------------------------------------------------------------------------
+if(fastqc) {
+    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
+}
+if(clip) {
+    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
+}
+if(bwa) {
+    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
+    if(genomeIndex.isEmpty()) error "Usage: -genomeIndex /path/to/genome_index/"
+}
+if(star) {
+    if(fqDir.isEmpty())  error "Usage: -fqDir /path/to/fastq_reads/"
+    if(genomeIndex.isEmpty())  error "Usage: -genomeIndex /path/to/genome_index/"
+}
+if(count) {
+    if(gtfFile.isEmpty())  error "Usage: -gtfFile /path/to/gtf_file/"
+}
+if(prePro) {
+    if(fastaRef.isEmpty()) error "Usage: -fastaRef /path/to/reference_fasta_file"
+}
+#----------------------------------------------------------------------------------------------------
 
+string{} uniqueNamesMap = getUniqueNames(fqDir)
+#loop over each key in the map
+for(string fqread : uniqueNamesMap.keys()) {
+    # get value for each key and break values into list
+    string mapValue = uniqueNamesMap{fqread} 
+    string[] getList = mapValue.split(",")
 #------------------------------
 # fastQC report
 #------------------------------
-if (fastqc == "yes" ) {
-
-    sys module load fastqc
-    string fastqcFiles = ''
-
-    for ( string fq : fqDir.dir("*fastq.gz") ) {
-        fastqcFiles += " "+fq 
+    if(fastqc) {
+        sys module load fastqc
+        string fastqcFiles = getList.join(" ")
+        task fastqc -o $fastqcReport -f fastq $fastqcFiles
     }
-
-    task fastqc -o $fastqcReport -f fastq $fastqcFiles
-}
-
 #------------------------------
 # Nesoni clip
 #------------------------------
-#if (clip == "yes") {
-#    string{} fqFiles = fqGet(fqDir, fqRegex, extn)
-#    for(string fq : fqFiles.keys()) {
-#        string mapValue = fqFiles{fq}
-#        string[] reads = mapValue.split(",")
-#        string readOne = reads[1]
-#        string readOnePair = readOne.swapExt("_R1_002.fastq.gz", "_R2_002.fastq.gz")
-#        string readTwo = reads[2]
-#        string readTwoPair = readTwo.swapExt("_R1_001.fastq.gz", "_R2_001.fastq.gz")
-#        
-#        string pairOne = readOne+' '+readOnePair 
-#        string pairTwo = readTwo+' '+readTwoPair 
-#
-#        string preFix = clippedFastq+"/"+fq
-#        string outPut = preFix+"_single.fq.gz"
-#        string logFile = preFix+"_log.txt"
-#
-#        task ([outPut, logFile] <- [readOne, readTwo]) {
-#            sys nesoni clip: --quality 28 \
-#                             --out-separate yes \
-#                             $preFix \
-#                       pairs: $pairOne pairs: $pairTwo
-#        }
-#    }
-#}
-
+    if(clip) {
+        string reads = getNesoniReads(getList)
+        string test = NesoniClip(reads, fqread)
+    }
+#------------------------------
+# STAR alignment 
+#------------------------------
+    if(star) {
+        string reads = getSTARreads(getList)
+        string bamFile = mapSTAR(genomeIndex, reads, fqread) 
+    }
+}
 #------------------------------
 # BWA alignment
 #------------------------------
@@ -214,31 +173,6 @@ if (bwa == "yes") {
         }
     }
 }
-
-#------------------------------
-# STAR alignment 
-#------------------------------
-
-#--------------
-# Notes
-#--------------
-# - set the default file extension, most common e.g default: fastq.gz. Then user can change through optional
-#   flag if they want
-# - set the default regex for unique name identification and give user and option to specify different file
-#   extension
-# - remember to add .dirPath()
-if(star) {
-    string{} uniqueNamesMap = getUniqueNames(fqDir)
-    #loop over each key in the map
-    for(string fqread : uniqueNamesMap.keys()) {
-        # get value for each key and break values into list
-        string mapValue = uniqueNamesMap{fqread} 
-        string[] getList = mapValue.split(",")
-        string reads = getSTARreads(getList)
-        string bamFile = mapSTAR(genomeIndex, reads, fqread) 
-    }
-}
-
 #----------------------------------------------------------------------
 # piacrd secssion for bam file preprocessing for RNA-SeQC report
 #----------------------------------------------------------------------
@@ -361,7 +295,11 @@ string{} getUniqueNames(string fqDir) {
 string getSTARreads(string[] readsList) {
 
     string[] listR1, listR2, laneList
-    string read1, read2, lanes, preFix
+    string read1
+    string read2
+    string lanes
+    string preFix
+    bool checkPair
 
     int getListSize = readsList.size()-1
     for(int i : range(0,getListSize)) {
@@ -372,26 +310,26 @@ string getSTARreads(string[] readsList) {
         string rOne = "R1"+lastBit
         string rTwo = "R2"+lastBit
         string pairedEnd = singleRead.swapExt(rOne, rTwo)
-        bool checkPair = pairedEnd.isFile()
+        checkPair = pairedEnd.isFile()
         # exctract lanes information from the file name
         #string[] tmpLane = singleRead.split("_")
         #string tmpLane2 = tmpLane.pop()
         #string getLane = tmpLane.pop()
-        if(checkPair){
-            listR1.add(singleRead)
-            listR2.add(pairedEnd)
-            #laneList.add(getLane)
-            # concatenate for STAR usage 
-            read1 = listR1.join(",")
-            read2 = listR2.join(",")
-            #lanes = laneList.join(",")
-            return "$read1 $read2"
-        }
-        else{
-            listR1.add(singleRead)
-            read1 = listR1.join(",")
-            return read1
-        }
+        listR1.add(singleRead)
+        listR2.add(pairedEnd)
+    }
+
+    if(checkPair){
+        #laneList.add(getLane)
+        # concatenate for STAR usage 
+        read1 = listR1.join(",")
+        read2 = listR2.join(",")
+        #lanes = laneList.join(",")
+        return "$read1 $read2"
+    }
+    else{
+        read1 = listR1.join(",")
+        return read1
     }
 }
 
@@ -414,5 +352,53 @@ string mapSTAR(string genomeIndex, string reads, string rootName) {
     # doing this I find a bit impractical on our server because of
     # limited RAM - only 128 Gb
     return bamOut
+}
+
+string getNesoniReads(string[] readsList) {
+
+    string[] nesoniList
+    
+    int getListSize = readsList.size()
+    for(int i : range(0,getListSize-1)) {
+        string singleRead = readsList[i]
+        string[] getLastBit = singleRead.split("R1")
+        string lastBit = getLastBit.pop()
+        string rOne = "R1"+lastBit
+        string rTwo = "R2"+lastBit
+        string pairedEnd = singleRead.swapExt(rOne, rTwo)
+        bool checkPair = pairedEnd.isFile()
+        int checkInAllReads = 2*getListSize
+        int checkInNesoniString = 2*getListSize-2
+
+        if(checkPair){
+            if(nesoniList.size() < checkInAllReads) {
+                if(nesoniList.size() == checkInNesoniString) nesoniList.add("pairs:")
+                nesoniList.add("$singleRead $pairedEnd")
+            }
+        }
+        else{
+            if(nesoniList.size() < checkInAllReads) {
+                if(nesoniList.size() == checkInNesoniString) nesoniList.add("reads:")
+                nesoniList.add(singleRead) 
+            }
+       }
+    }
+    string reads = nesoniList.join(" ")
+    return reads
+}
+
+string NesoniClip(string reads, string rootName) {
+
+    string preFix = clippedFastq+"/"+rootName.baseName()
+    string outfq = preFix+"_single.fq.gz"
+    string outfq1 = preFix+"_R1.fq.gz"
+    string outfq2 = preFix+"_R2.fq.gz"
+    string logFile = preFix+"_log.txt"
+
+    task nesoni clip: --quality 28 \
+                      --out-separate yes \
+                      $preFix \
+                      $reads
+    return outfq
 }
 #----------------------------------------------------------------------------------------------------

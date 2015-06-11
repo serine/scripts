@@ -1,7 +1,11 @@
-string fq, fqDir, fqRegex
+helpUnsorted := true
+
+
+string fq help test
+string abc help test abd
 
 #print getExtn(fq)
-print getFilesMap(fq)
+#print getFilesMap(fq)
 #pritn getUniqueFqs(fqDir, fqRegex)
 #print getMajorExtn(fqDir)
 
