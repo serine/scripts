@@ -117,6 +117,7 @@ if(prePro) {
 #------------------------------
 
 string nesoniOutFiles
+string bamFile
 
 #----------------------------------------------------------------------------------------------------
 
@@ -138,6 +139,7 @@ for(string fqread : uniqueNamesMap.keys()) {
 # Nesoni clip
 #------------------------------
     if(clip) {
+        sys source $HOME/pypyenv/bin/activate
         string reads = getNesoniReads(getList)
         nesoniOutFiles = NesoniClip(reads, fqread, true)
     }
@@ -146,11 +148,30 @@ for(string fqread : uniqueNamesMap.keys()) {
 #------------------------------
     if(star) {
         if(clip) {
-            string bamFile = mapSTAR(genomeIndex, nesoniOutFiles, fqread) 
+            bamFile = mapSTAR(genomeIndex, nesoniOutFiles, fqread) 
         }
         else {
             string reads = getSTARreads(getList)
-            string bamFile = mapSTAR(genomeIndex, reads, fqread) 
+            bamFile = mapSTAR(genomeIndex, reads, fqread) 
+        }
+    }
+#------------------------------
+# featureCount
+#------------------------------
+    if(count) {
+        string reverseFeature = featureReverse+"/"+fqread.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (reverseFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $reverseFeature \
+                              $bamFile \
+                              -s 2
+        }
+        string noFeature = featureNo+"/"+fqread.baseName().swapExt("_Aligned.out.bam", ".txt")
+        task (noFeature <- bamFile) {
+            sys featureCounts -a $gtfFile \
+                              -o $noFeature \
+                              $bamFile \
+                              -s 0
         }
     }
 }
@@ -257,29 +278,6 @@ if(prePro == "yes") {
 #    }
 #}
 
-#------------------------------
-# featureCount
-#------------------------------
-
-if ( count == "yes" ) {
-    for (string bamFile : bamFiles.dir("*bam") ) {
-        string reverseFeature = featureReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-        task (reverseFeature <- bamFile) {
-            sys featureCounts -a $gtfFile \
-                              -o $reverseFeature \
-                              $bamFile \
-                              -s 2
-        }
-    
-        string noFeature = featureNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-        task (noFeature <- bamFile) {
-            sys featureCounts -a $gtfFile \
-                              -o $noFeature \
-                              $bamFile \
-                              -s 0
-        }
-    }
-}
 #------------------------------
 # End
 #------------------------------
