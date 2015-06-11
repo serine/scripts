@@ -112,6 +112,14 @@ if(prePro) {
 }
 #----------------------------------------------------------------------------------------------------
 
+#------------------------------
+# Global variables
+#------------------------------
+
+string nesoniOutFiles
+
+#----------------------------------------------------------------------------------------------------
+
 string{} uniqueNamesMap = getUniqueNames(fqDir)
 #loop over each key in the map
 for(string fqread : uniqueNamesMap.keys()) {
@@ -131,14 +139,19 @@ for(string fqread : uniqueNamesMap.keys()) {
 #------------------------------
     if(clip) {
         string reads = getNesoniReads(getList)
-        string test = NesoniClip(reads, fqread)
+        nesoniOutFiles = NesoniClip(reads, fqread, true)
     }
 #------------------------------
 # STAR alignment 
 #------------------------------
     if(star) {
-        string reads = getSTARreads(getList)
-        string bamFile = mapSTAR(genomeIndex, reads, fqread) 
+        if(clip) {
+            string bamFile = mapSTAR(genomeIndex, nesoniOutFiles, fqread) 
+        }
+        else {
+            string reads = getSTARreads(getList)
+            string bamFile = mapSTAR(genomeIndex, reads, fqread) 
+        }
     }
 }
 #------------------------------
@@ -387,18 +400,23 @@ string getNesoniReads(string[] readsList) {
     return reads
 }
 
-string NesoniClip(string reads, string rootName) {
+string NesoniClip(string reads, string rootName, bool singleEnd) {
 
     string preFix = clippedFastq+"/"+rootName.baseName()
     string outfq = preFix+"_single.fq.gz"
     string outfq1 = preFix+"_R1.fq.gz"
     string outfq2 = preFix+"_R2.fq.gz"
     string logFile = preFix+"_log.txt"
-
+    
     task nesoni clip: --quality 28 \
                       --out-separate yes \
                       $preFix \
                       $reads
-    return outfq
+    if(!singleEnd) {
+        return "$outfq1 $outfq2"
+    }
+    else {
+        return outfq
+    }
 }
 #----------------------------------------------------------------------------------------------------
