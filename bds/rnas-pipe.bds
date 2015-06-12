@@ -254,14 +254,7 @@ string mapSTAR(string genomeIndex, string reads, string rootName) {
     string rootBase = rootName.baseName()
     string preFix = bamFiles+"/"+rootBase+"_"
     string bamOut = preFix+"Aligned.out.bam"
-    #string[] checkDep = breakIntoDep(reads)
 
-    #string test = clippedFastq+"/"+rootBase+"_single.fq.gz"
-    #return test
-
-    #if(clip){
-    #    
-    #}
     task(bamOut <- reads) {
         sys STAR --runThreadN 24 \
                   --genomeDir $genomeIndex \
@@ -344,15 +337,23 @@ string NesoniClip(string[] items, string rootName) {
     string outfq1 = preFix+"_R1.fq.gz"
     string outfq2 = preFix+"_R2.fq.gz"
     string logFile = preFix+"_log.txt"
-
-    task nesoni clip: --quality 28 \
-                      --out-separate yes \
-                      $preFix \
-                      $reads
+    
     if(checkPair) {
+        task([outfq, outfq1, outfq2, logFile] <- reads){
+            sys  nesoni clip: --quality 28 \
+                          --out-separate yes \
+                          $preFix \
+                          $reads
+        }
         return "$outfq1 $outfq2"
     }
     else {
+        task([outfq, logFile] <- reads){
+            sys  nesoni clip: --quality 28 \
+                          --out-separate yes \
+                          $preFix \
+                          $reads
+        }
         return outfq
     }
 }
