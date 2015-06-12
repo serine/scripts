@@ -1,0 +1,55 @@
+#------------------------------
+# BWA alignment
+#------------------------------
+if (bwa == "yes") {
+
+    if( (!fqDir.isEmpty()) && (clip == "yes") ) fqDir = clippedFastq
+
+    for(string fq : fqDir.dir("*R1.fq.gz")) {
+        string fqName = fq.baseName()
+        string bamFile = bamFiles+"/"+fqName.swapExt("fq.gz", "bam")
+        string bamSortedPrefix = bamFile.swapExt(".bam", "_sorted")
+        string bamSortedFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam")
+        string bamIndexFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam.bai")
+        string pair = fq.swapExt("_R1.fq.gz", "_R2.fq.gz")
+        #print("$fqName $bamFile $bamSortedFile \n")
+    
+        #task ([bamSortedFile, bamIndexFile] <- fq) {
+        #    sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
+        #    sys bwa samse $genomeIndex $samIndexFile $fq | \
+        #        samtools view -S -b - > $bamFile
+        #    sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+        #    sys samtools index $bamSortedFile
+        #} 
+        
+        task ([bamSortedFile, bamIndexFile] <- fq) {
+            sys bwa mem -t 5 $genomeIndex $fq $pair | \
+                samtools view -S -b - > $bamFile
+            sys samtools sort -@ 4 $bamFile $bamSortedPrefix
+            sys samtools index $bamSortedFile
+        }
+    }
+}
+
+
+#------------------------------
+# htseq-count 
+#------------------------------
+#if(count) {
+#    for (string bamFile : bamFiles.dir("*bam") ) {
+#        string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+#        task ( reverseStranded <- bamFile ) {
+#            sys htseq-count --quiet \
+#                            --stranded=reverse \
+#                            --format=bam \
+#                            $bamFile $gtfFile > $reverseStranded
+#        }
+#        string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+#        task ( noStranded <- bamFile ) {
+#            sys htseq-count --quiet \
+#                            --stranded=no \
+#                            --format=bam \
+#                            $bamFile $gtfFile > $noStranded
+#        }
+#    }
+#}

@@ -1,9 +1,7 @@
 #! /usr/bin/env bds
 
 #----------------------------------------------------------------------------------------------------
-#
 #  Map Reads to the reference genome
-#                                                                                
 #----------------------------------------------------------------------------------------------------
 
 #------------------------------
@@ -12,8 +10,6 @@
 
 #----------------------------------------------------------------------------------------------------
 #  About STARmergeNalign.bds
-#
-#   -  run -h, -help, --help to get more help of the command line arguments
 #   -  takes a whole directory that contatins fastq files and maps to the reference genome
 #   -  identifies samples that span different lanes and merges then together during STAR run,
 #      outputting sigle bam file per sample.
@@ -21,14 +17,10 @@
 #   -  creates strandedNo and strandedReverse directories under the current directory and 
 #      performce read count using htseq-count outputting results in corresponding directories.
 #----------------------------------------------------------------------------------------------------
-#  Usage:
-#
-#  1. STAR outputs all file into the current directory i.e the directory STAR was executed from.
-#  2. The best practise is to make new directory for your STARmergeNaling.bds run and execute
-#     STARmergeNalign.bds script within that directory.
-#----------------------------------------------------------------------------------------------------
+
+#------------------------------
 #  Input Parametrs
-#----------------------------------------------------------------------------------------------------
+#------------------------------
 
 helpUnsorted := true
 
@@ -42,33 +34,21 @@ bool prePro        help flag if you like to preprocess your bam files -must for 
 string fastaRef    help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
 bool fastqc        help flag if you like to run fastQC report on the files
 bool clip          help flag if you like to trim your fastq files before processing further
-bool bwa           help flag if you like to use bwa aligner
-string fqRegex
+string fqRegex   
 string extn
 
-if( args.isEmpty() ) {
-    printHelp()
-    exit(1)
-}
-
-#----------------------------------------
+#------------------------------
 # Default parameters
-#----------------------------------------
+#------------------------------
 #if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
 #if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9].fastq.gz$"
 if(fqRegex.isEmpty()) fqRegex = "_R[0-9]_[0-9]{3}.fastq.gz$"
 if(extn.isEmpty()) extn = "*fastq.gz"
-#----------------------------------------------------------------------------------------------------
-#
-# Main
-#
-#----------------------------------------------------------------------------------------------------
 
 #------------------------------
 # Make directories as required
 #------------------------------
 
-#----------------------------------------------------------------------------------------------------
 string bamFiles = "bamFiles"
 string preqcBamFiles = "preqcBamFiles"
 string featureNo = "featureNo"
@@ -83,22 +63,15 @@ if((!clippedFastq.exists()) && (clip)) clippedFastq.mkdir()
 if((!featureNo.exists()) && (count)) featureNo.mkdir()
 if((!featureReverse.exists()) && (count)) featureReverse.mkdir()
 if((!fastqcReport.exists()) && (fastqc)) fastqcReport.mkdir()
-#----------------------------------------------------------------------------------------------------
 
 #------------------------------
 # Sanity check
 #------------------------------
-
-#----------------------------------------------------------------------------------------------------
 if(fastqc) {
     if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
 }
 if(clip) {
     if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
-}
-if(bwa) {
-    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
-    if(genomeIndex.isEmpty()) error "Usage: -genomeIndex /path/to/genome_index/"
 }
 if(star) {
     if(fqDir.isEmpty())  error "Usage: -fqDir /path/to/fastq_reads/"
@@ -110,15 +83,19 @@ if(count) {
 if(prePro) {
     if(fastaRef.isEmpty()) error "Usage: -fastaRef /path/to/reference_fasta_file"
 }
-#----------------------------------------------------------------------------------------------------
-
+if( args.isEmpty() ) {
+    printHelp()
+    exit(1)
+}
 #------------------------------
 # Global variables
 #------------------------------
 
-string nesoniOutFiles
+string nesoniReads
 string bamFile
 
+#----------------------------------------------------------------------------------------------------
+# Data generation loop
 #----------------------------------------------------------------------------------------------------
 
 string{} uniqueNamesMap = getUniqueNames(fqDir)
@@ -140,20 +117,52 @@ for(string fqread : uniqueNamesMap.keys()) {
 #------------------------------
     if(clip) {
         sys source $HOME/pypyenv/bin/activate
-        string reads = getNesoniReads(getList)
-        nesoniOutFiles = NesoniClip(reads, fqread, true)
+        string[] reads = getNesoniReads(getList)
+        nesoniReads = NesoniClip(reads, fqread)
     }
 #------------------------------
 # STAR alignment 
 #------------------------------
     if(star) {
         if(clip) {
-            bamFile = mapSTAR(genomeIndex, nesoniOutFiles, fqread) 
+            bamFile = mapSTAR(genomeIndex, nesoniReads, fqread) 
         }
         else {
             string reads = getSTARreads(getList)
             bamFile = mapSTAR(genomeIndex, reads, fqread) 
         }
+    }
+#----------------------------------------------------------------------
+# piacrd secssion for bam file preprocessing for RNA-SeQC report
+#----------------------------------------------------------------------
+    if(prePro) {
+       # put newly generated *sorted.bam files into preqcBamFiles directory
+       string sortedName = preqcBamFiles+"/"+bamFile.baseName().swapExt("Aligned.out.bam", "sorted.bam")
+       task(sortedName <- bamFile) {
+           sys picard SortSam TMP_DIR=tmp/ \
+                             VALIDATION_STRINGENCY=LENIENT \
+                             INPUT=$bamFile \
+                             OUTPUT=$sortedName \
+                             SORT_ORDER=coordinate
+       }
+       string reorderedName = sortedName.swapExt(".bam", "_reordered.bam")
+       task(reorderedName <- sortedName) {
+          sys picard ReorderSam TMP_DIR=tmp/ \
+                                VALIDATION_STRINGENCY=LENIENT \
+                                INPUT=$sortedName \
+                                OUTPUT=$reorderedName \
+                                REFERENCE=$fastaRef
+       }
+       string mdupsName = reorderedName.swapExt(".bam", "_marked_dups.bam")
+       string metricsName = reorderedName.swapExt(".bam", "_marked_dups.metrics")
+       task(mdupsName <- reorderedName) {
+          sys picard MarkDuplicates TMP_DIR=tmp/ \
+                                    VALIDATION_STRINGENCY=LENIENT \
+                                    CREATE_INDEX=true \
+                                    INPUT=$reorderedName \
+                                    OUTPUT=$mdupsName \
+                                    METRICS_FILE=$metricsName
+       }
     }
 #------------------------------
 # featureCount
@@ -175,112 +184,9 @@ for(string fqread : uniqueNamesMap.keys()) {
         }
     }
 }
-#------------------------------
-# BWA alignment
-#------------------------------
-if (bwa == "yes") {
-
-    if( (!fqDir.isEmpty()) && (clip == "yes") ) fqDir = clippedFastq
-
-    for(string fq : fqDir.dir("*R1.fq.gz")) {
-        string fqName = fq.baseName()
-        string bamFile = bamFiles+"/"+fqName.swapExt("fq.gz", "bam")
-        string bamSortedPrefix = bamFile.swapExt(".bam", "_sorted")
-        string bamSortedFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam")
-        string bamIndexFile = bamSortedPrefix.swapExt("_sorted", "_sorted.bam.bai")
-        string pair = fq.swapExt("_R1.fq.gz", "_R2.fq.gz")
-        #print("$fqName $bamFile $bamSortedFile \n")
-    
-        #task ([bamSortedFile, bamIndexFile] <- fq) {
-        #    sys bwa aln -t 4 $genomeIndex $fq > $samIndexFile
-        #    sys bwa samse $genomeIndex $samIndexFile $fq | \
-        #        samtools view -S -b - > $bamFile
-        #    sys samtools sort -@ 4 $bamFile $bamSortedPrefix
-        #    sys samtools index $bamSortedFile
-        #} 
-        
-        task ([bamSortedFile, bamIndexFile] <- fq) {
-            sys bwa mem -t 5 $genomeIndex $fq $pair | \
-                samtools view -S -b - > $bamFile
-            sys samtools sort -@ 4 $bamFile $bamSortedPrefix
-            sys samtools index $bamSortedFile
-        }
-    }
-}
-#----------------------------------------------------------------------
-# piacrd secssion for bam file preprocessing for RNA-SeQC report
-#----------------------------------------------------------------------
-
-if(prePro == "yes") {
-   # loop over bamFiles directory.
-   # only interested in bam files
-    for ( string bamFile : bamFiles.dir("*bam") ) {
-        # put newly generated *sorted.bam files into preqcBamFiles directory
-        string sortedName = preqcBamFiles+"/"+bamFile.baseName().swapExt("Aligned.out.bam", "sorted.bam")
-
-        task ( sortedName <- bamFile ) {
-            sys picard SortSam TMP_DIR=tmp/ \
-                              VALIDATION_STRINGENCY=LENIENT \
-                              INPUT=$bamFile \
-                              OUTPUT=$sortedName \
-                              SORT_ORDER=coordinate
-        }
-        # put newly generated reordered.bam files into the same directory i.e preqcBamFiles
-        string reorderedName = sortedName.swapExt(".bam", "_reordered.bam")
-    
-        task ( reorderedName <- sortedName ) {
-           sys picard ReorderSam TMP_DIR=tmp/ \
-                                 VALIDATION_STRINGENCY=LENIENT \
-                                 INPUT=$sortedName \
-                                 OUTPUT=$reorderedName \
-                                 REFERENCE=$fastaRef
-        }
-    
-        string mdupsName = reorderedName.swapExt(".bam", "_marked_dups.bam")
-        string metricsName = reorderedName.swapExt(".bam", "_marked_dups.metrics")
-
-        task ( mdupsName <- reorderedName ) {
-           sys picard MarkDuplicates TMP_DIR=tmp/ \
-                                     VALIDATION_STRINGENCY=LENIENT \
-                                     CREATE_INDEX=true \
-                                     INPUT=$reorderedName \
-                                     OUTPUT=$mdupsName \
-                                     METRICS_FILE=$metricsName
-        }
-    }
-}
-
-#------------------------------
-# htseq-count 
-#------------------------------
-
-#if ( count == "yes" ) {
-#        
-#    for (string bamFile : bamFiles.dir("*bam") ) {
-#    
-#        string reverseStranded = strandedReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-#         
-#        task ( reverseStranded <- bamFile ) {
-#            sys htseq-count --quiet \
-#                            --stranded=reverse \
-#                            --format=bam \
-#                            $bamFile $gtfFile > $reverseStranded
-#        }
-#
-#        string noStranded = strandedNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
-#
-#        task ( noStranded <- bamFile ) {
-#            sys htseq-count --quiet \
-#                            --stranded=no \
-#                            --format=bam \
-#                            $bamFile $gtfFile > $noStranded
-#        }
-#    }
-#}
-
-#------------------------------
+#----------------------------------------------------------------------------------------------------
 # End
-#------------------------------
+#----------------------------------------------------------------------------------------------------
 
 #------------------------------
 # Functions
@@ -311,8 +217,8 @@ string getSTARreads(string[] readsList) {
     string lanes
     string preFix
     bool checkPair
-
     int getListSize = readsList.size()-1
+
     for(int i : range(0,getListSize)) {
         # get fastq reads and get it pair 
         string singleRead = readsList[i]
@@ -329,7 +235,6 @@ string getSTARreads(string[] readsList) {
         listR1.add(singleRead)
         listR2.add(pairedEnd)
     }
-
     if(checkPair){
         #laneList.add(getLane)
         # concatenate for STAR usage 
@@ -345,14 +250,24 @@ string getSTARreads(string[] readsList) {
 }
 
 string mapSTAR(string genomeIndex, string reads, string rootName) {
-   
-    string preFix = bamFiles+"/"+rootName.baseName()+"_"
+
+    string rootBase = rootName.baseName()
+    string preFix = bamFiles+"/"+rootBase+"_"
     string bamOut = preFix+"Aligned.out.bam"
+    #string[] checkDep = breakIntoDep(reads)
+
+    #string test = clippedFastq+"/"+rootBase+"_single.fq.gz"
+    #return test
+
+    #if(clip){
+    #    
+    #}
     task(bamOut <- reads) {
-        sys STAR --runThreadN 28 \
+        sys STAR --runThreadN 24 \
                   --genomeDir $genomeIndex \
                   --outSAMtype BAM Unsorted \
                   --outSAMunmapped Within \
+                  --outSAMattrRGline ID:001 CN:Unknown DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$rootBase \
                   --readFilesCommand zcat \
                   --readFilesIn $reads \
                   --outFileNamePrefix $preFix
@@ -365,11 +280,35 @@ string mapSTAR(string genomeIndex, string reads, string rootName) {
     return bamOut
 }
 
-string getNesoniReads(string[] readsList) {
+string[] breakIntoDep(string reads) {
+    
+    string[] splitList = reads.split(" ")
+    string checkLength = splitList.size() 
+    string read1 = splitList[0]
+    string checkLanes = read1.lastIndexOf(",")
+
+    if(checkLength > 1){
+        if(checkLanes != -1){
+            return splitList
+        }
+        else{
+            string[] read = read1.split(",")
+            return read
+        }
+    }
+    else{
+        return splitList
+    }
+
+}
+
+string[] getNesoniReads(string[] readsList) {
 
     string[] nesoniList
-    
+    string[] items
+    bool checkPair 
     int getListSize = readsList.size()
+
     for(int i : range(0,getListSize-1)) {
         string singleRead = readsList[i]
         string[] getLastBit = singleRead.split("R1")
@@ -377,40 +316,40 @@ string getNesoniReads(string[] readsList) {
         string rOne = "R1"+lastBit
         string rTwo = "R2"+lastBit
         string pairedEnd = singleRead.swapExt(rOne, rTwo)
-        bool checkPair = pairedEnd.isFile()
-        int checkInAllReads = 2*getListSize
-        int checkInNesoniString = 2*getListSize-2
+        checkPair = pairedEnd.isFile()
 
         if(checkPair){
-            if(nesoniList.size() < checkInAllReads) {
-                if(nesoniList.size() == checkInNesoniString) nesoniList.add("pairs:")
-                nesoniList.add("$singleRead $pairedEnd")
-            }
+            nesoniList.add("pairs:")
+            nesoniList.add(singleRead)
+            nesoniList.add(pairedEnd)
         }
         else{
-            if(nesoniList.size() < checkInAllReads) {
-                if(nesoniList.size() == checkInNesoniString) nesoniList.add("reads:")
-                nesoniList.add(singleRead) 
-            }
-       }
+            nesoniList.add("reads:")
+            nesoniList.add(singleRead) 
+        }
     }
     string reads = nesoniList.join(" ")
-    return reads
+    items.add(reads)
+    items.add(checkPair)
+    return items
 }
 
-string NesoniClip(string reads, string rootName, bool singleEnd) {
+string NesoniClip(string[] items, string rootName) {
+
+    string reads = items[0]
+    bool checkPair = items[1].parseBool()
 
     string preFix = clippedFastq+"/"+rootName.baseName()
     string outfq = preFix+"_single.fq.gz"
     string outfq1 = preFix+"_R1.fq.gz"
     string outfq2 = preFix+"_R2.fq.gz"
     string logFile = preFix+"_log.txt"
-    
+
     task nesoni clip: --quality 28 \
                       --out-separate yes \
                       $preFix \
                       $reads
-    if(!singleEnd) {
+    if(checkPair) {
         return "$outfq1 $outfq2"
     }
     else {
