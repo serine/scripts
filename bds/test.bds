@@ -1,0 +1,25 @@
+#!/usr/bin/env bds
+#test := ["item1", "item2", "item3", "item4", "item5", "item6", "item7", "item8"]
+#string[] test = ["item1", "item2", "item3", "item4", "item5", "item6"]
+string[] test = ["item1", "item2"]
+string[] newList
+int ll = test.size()
+#string one = test.tail()
+#test = test.tail()
+
+for( int i=0 ; i < 10 ; i += 3 ) {
+    #string one = test.head()
+    #test = test.tail()
+    #string two = test.head()
+    #test = test.tail()
+    #newList.add("hi")
+    #newList.add(one)
+    #newList.add(two)
+    test.add(1, "hi")
+    
+    #print("$one\n")
+	#task echo Hi $i; sleep 1 ; echo Done $i ; sleep 1
+	#sys echo $i
+}
+#print("$newList\n")
+print("$test\n")
