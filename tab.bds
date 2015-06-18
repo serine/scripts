@@ -1,4 +1,4 @@
-#!/home/kirill/.bds/bds
+#! /usr/bin/env bds
 
 #----------------------------------------------------------------------------------------------------
 #  Map Reads to the reference genome
@@ -25,23 +25,17 @@
 helpUnsorted := true
 
 #sys sleep 40
-help General options
-string fqRegex     help optional, provide regex for your common file ending
-string extn        help optional, specify your files extension e.g fq or fastq.gz
-help To aling your reads using STAR
-bool star          help flag if you like to align with STAR
+bool star                  help flag if you like to align with STAR
 string fqDir       help path to the directory with fastq file                   
 string genomeIndex help path to the directory with genome index for the coresponding species
-help To also count features using featureCounts
-bool count         help flag if you like to count reads with featureCount
+bool count                 help flag if you like to count reads with featureCount
 string gtfFile     help path to the directory with gtf file
-help To pre process your bam files for RNA-SeQC report 
-bool prePro        help flag if you like to preprocess your bam files
-string fastaRef    help path to the reference fasta file
-help To get fastqc report
-bool fastqc        help flag if you like to run fastQC report on the files
-help To adaptor and quality trim your fastq files 
-bool clip          help flag if you like to trim your fastq files before processing further
+bool prePro                help flag if you like to preprocess your bam files -must for RNA-SeQC report
+string fastaRef    help path to the reference fasta file, required when doing preprocessing for RNA-SeQC run
+bool fastqc                help flag if you like to run fastQC report on the files
+bool clip                  help flag if you like to trim your fastq files before processing further
+string fqRegex   
+string extn
 
 #------------------------------
 # Default parameters
@@ -63,6 +57,7 @@ string fastqcReport = "fastqcReport"
 string clippedFastq = "clippedFastq"
 
 if((!bamFiles.exists()) && (star)) bamFiles.mkdir()
+#if(!bamFiles.exists() && star) || (!bwa.isEmpty())) bamFiles.mkdir()
 if((!preqcBamFiles.exists()) && (prePro)) preqcBamFiles.mkdir()
 if((!clippedFastq.exists()) && (clip)) clippedFastq.mkdir()
 if((!featureNo.exists()) && (count)) featureNo.mkdir()
@@ -92,7 +87,7 @@ if( args.isEmpty() ) {
     printHelp()
     exit(1)
 }
-#-----------------------------
+#------------------------------
 # Global variables
 #------------------------------
 
@@ -103,11 +98,11 @@ string bamFile
 # Data generation loop
 #----------------------------------------------------------------------------------------------------
 
-string{} uniqueNames = getUniqueNames(fqDir)
+string{} uniqueNamesMap = getUniqueNames(fqDir)
 #loop over each key in the map
-for(string fqread : uniqueNames.keys()) {
+for(string fqread : uniqueNamesMap.keys()) {
     # get value for each key and break values into list
-    string mapValue = uniqueNames{fqread} 
+    string mapValue = uniqueNamesMap{fqread} 
     string[] getList = mapValue.split(",")
 #------------------------------
 # fastQC report
@@ -198,7 +193,7 @@ for(string fqread : uniqueNames.keys()) {
 #------------------------------
 string{} getUniqueNames(string fqDir) {
     # Map with unique root key
-    string{} uniqueNames 
+    string{} uniqueNamesMap 
     for(string fq : fqDir.dir(extn)) {
         # make sure we have fastq files only
         string getR1Index = fq.lastIndexOf("R1") 
@@ -207,91 +202,96 @@ string{} getUniqueNames(string fqDir) {
             string[] getFile = fq.split(fqRegex)
             string rootName = getFile[0]
             # append to the list if it isn't in the list already
-            if(!uniqueNames.hasKey(rootName)) uniqueNames{rootName}=""
-            uniqueNames{rootName}+=fq+","
+            if(!uniqueNamesMap.hasKey(rootName)) uniqueNamesMap{rootName}=""
+            uniqueNamesMap{rootName}+=fq+","
         }
     }
-    return uniqueNames
+    return uniqueNamesMap
 }
-#----------------------------------------------------------------------------------------------------
-# Dev section
-#----------------------------------------------------------------------------------------------------
-string[] getOrderedList(string[] readsList) {
-
-    string[] orederedReadsList
-    bool checkPair
-    int getListSize = readsList.size()-1
-    
-    for(int i : range(0,getListSize)) {
-        # get fastq reads and get it pair 
-        string singleRead = readsList[i]
-        string[] getLastBit = singleRead.split("R1")
-        string lastBit = getLastBit.pop()
-        string rOne = "R1"+lastBit
-        string rTwo = "R2"+lastBit
-        string pairedEnd = singleRead.swapExt(rOne, rTwo)
-        
-        orederedReadsList.add(singleRead)
-        checkPair = pairedEnd.isFile()
-        if(checkPair) orederedReadsList.add(pairedEnd)
-    }
-    orederedReadsList.add(checkPair)
-    return orederedList
-}
-
-string getSTARreadsTest(string[] readsList) {
-
-    string[] listR1
-    string[] listR2
-    
-    string boolItem = readsList.pop()
-    bool checkPair = boolItem.parseBool()
-    int getListSize = readsList.size()
-    
-    for(string read : readsList) {
-        if(checkPair){
-            string checkR1 = read.lastIndexOf("R1")
-            if(checkR1 != -1) listR1.add(read)
-            else listR2.add(read)
-        }
-        else{ 
-            if(getListSize == 1) return readsList[0]
-        #else listR1.add(read)
-        }
-        
-        if(listR2) {
-            string read1 = listR1.join(",")
-            string read2 = listR2.join(",")
-        return "$read1 $read2"
-    }
-}
-
-string getNesoniReads(string[] orderedList) {
-
-    string boolItem = orderedList.pop()
-    bool checkPair = boolItem.parseBool()
-    int listSize = orderedList.size()
-
-    if(checkPair) {
-        int numberOfPairs = listSize/2
-        int finalListSize = listSize+numberOfPairs
-
-        for (int i=0; i<finalListSize; i+=3) {
-            orderedList.add(i, "pairs:")
-        }
-    }
-    else {
-        int finalListSize = listSize*2
-
-        for (int i=0; i<finalListSize; i+=2) {
-            orderedList.add(i, "reads:")
-        }
-    }
-
-    string nesoniReads = orderedList.join(" ")
-    return nesoniReads
-}
-#----------------------------------------------------------------------------------------------------
+##----------------------------------------------------------------------------------------------------
+## Deve section
+##----------------------------------------------------------------------------------------------------
+#string[] getReadsTest(string[] readsList) {
+#
+#                string[] orederedReadsList
+#                bool checkPair
+#                int getListSize = readsList.size()-1
+#
+#                for(int i : range(0,getListSize)) {
+#                                # get fastq reads and get it pair 
+#                                string singleRead = readsList[i]
+#                                string[] getLastBit = singleRead.split("R1")
+#                                string lastBit = getLastBit.pop()
+#                                string rOne = "R1"+lastBit
+#                                string rTwo = "R2"+lastBit
+#                                string pairedEnd = singleRead.swapExt(rOne, rTwo)
+#
+#                                orederedReadsList.add(singleRead)
+#                                checkPair = pairedEnd.isFile()
+#                                if(checkPair) orederedReadsList.add(pairedEnd)
+#                }
+#                orederedReadsList.add(checkPair)
+#                return orederedReadsList
+#}
+#
+#string getSTARreadsTest(string[] readsList) {
+#
+#                string[] listR1
+#                string[] listR2
+#
+#                string boolItem = readsList.pop()
+#                bool checkPair = boolItem.parseBool()
+#                int getListSize = readsList.size()
+#
+#                for(string read : readsList) {
+#                                if(checkPair){
+#                                                string checkR1 = read.lastIndexOf("R1")
+#                                                if(checkR1 != -1) listR1.add(read)
+#                                                else listR2.add(read)
+#                                }
+#                                else{ 
+#                                                if(getListSize == 1) return readsList[0] #                                                else listR1.add(read)
+#                                }
+#
+#                if(listR2) {
+#                                string read1 = listR1.join(",")
+#                                string read2 = listR2.join(",")
+#                                return "$read1 $read2"
+#                }
+#}
+#
+#string[] getNesoniReads(string[] readsList) {
+#
+#                string[] nesoniList
+#                string[] items
+#                bool checkPair 
+#                int getListSize = readsList.size()
+#
+#                for(int i : range(0,getListSize-1)) {
+#                                string singleRead = readsList[i]
+#                                string[] getLastBit = singleRead.split("R1")
+#                                string lastBit = getLastBit.pop()
+#                                string rOne = "R1"+lastBit
+#                                string rTwo = "R2"+lastBit
+#                                string pairedEnd = singleRead.swapExt(rOne, rTwo)
+#                                checkPair = pairedEnd.isFile()
+#
+#                                if(checkPair){
+#                                                nesoniList.add("pairs:")
+#                                                nesoniList.add(singleRead)
+#                                                nesoniList.add(pairedEnd)
+#                                }
+#                                else{
+#                                                nesoniList.add("reads:")
+#                                                nesoniList.add(singleRead) 
+#                                }
+#                }
+#                string reads = nesoniList.join(" ")
+#                items.add(reads)
+#                items.add(checkPair)
+#                return items
+#}
+##----------------------------------------------------------------------------------------------------
 string getSTARreads(string[] readsList) {
 
 string[] listR1, listR2, laneList
@@ -380,34 +380,34 @@ return splitList
 
 string[] getNesoniReads(string[] readsList) {
 
-    string[] nesoniList
-    string[] items
-    bool checkPair 
-    int getListSize = readsList.size()
-    
-    for(int i : range(0,getListSize-1)) {
-        string singleRead = readsList[i]
-        string[] getLastBit = singleRead.split("R1")
-        string lastBit = getLastBit.pop()
-        string rOne = "R1"+lastBit
-        string rTwo = "R2"+lastBit
-        string pairedEnd = singleRead.swapExt(rOne, rTwo)
-        checkPair = pairedEnd.isFile()
-        
-        if(checkPair){
-            nesoniList.add("pairs:")
-            nesoniList.add(singleRead)
-            nesoniList.add(pairedEnd)
-        }
-        else{
-            nesoniList.add("reads:")
-            nesoniList.add(singleRead) 
-        }
-    }
-    string reads = nesoniList.join(" ")
-    items.add(reads)
-    items.add(checkPair)
-    return items
+string[] nesoniList
+string[] items
+bool checkPair 
+int getListSize = readsList.size()
+
+for(int i : range(0,getListSize-1)) {
+string singleRead = readsList[i]
+string[] getLastBit = singleRead.split("R1")
+string lastBit = getLastBit.pop()
+string rOne = "R1"+lastBit
+string rTwo = "R2"+lastBit
+string pairedEnd = singleRead.swapExt(rOne, rTwo)
+checkPair = pairedEnd.isFile()
+
+if(checkPair){
+nesoniList.add("pairs:")
+nesoniList.add(singleRead)
+nesoniList.add(pairedEnd)
+}
+else{
+nesoniList.add("reads:")
+nesoniList.add(singleRead) 
+}
+}
+string reads = nesoniList.join(" ")
+items.add(reads)
+items.add(checkPair)
+return items
 }
 
 string NesoniClip(string[] items, string rootName) {
