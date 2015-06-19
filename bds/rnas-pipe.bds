@@ -92,16 +92,20 @@ if( args.isEmpty() ) {
     printHelp()
     exit(1)
 }
-#-----------------------------
-# Global variables
+##------------------------------
+## fastQC report
+##------------------------------
+#    if(fastqc) {
+#        sys module load fastqc
+#        string fastqcFiles = getList.join(" ")
+#        task fastqc -o $fastqcReport -f fastq $fastqcFiles
+#    }
+
+#------------------------------
+# BAM generation step
 #------------------------------
 
-string nesoniReads
-string bamFile
-
-#----------------------------------------------------------------------------------------------------
-# Data generation loop
-#----------------------------------------------------------------------------------------------------
+string[] bamsList
 
 string{} uniqueNames = getUniqueNames(fqDir)
 #loop over each key in the map
@@ -109,84 +113,38 @@ for(string fqread : uniqueNames.keys()) {
     # get value for each key and break values into list
     string mapValue = uniqueNames{fqread} 
     string[] getList = mapValue.split(",")
-#------------------------------
-# fastQC report
-#------------------------------
-    if(fastqc) {
-        sys module load fastqc
-        string fastqcFiles = getList.join(" ")
-        task fastqc -o $fastqcReport -f fastq $fastqcFiles
-    }
-#------------------------------
-# Nesoni clip
-#------------------------------
+    string[] orderedList = getOrderedList(getList)
+
     if(clip) {
-        sys source $HOME/pypyenv/bin/activate
-        string[] reads = getNesoniReads(getList)
-        nesoniReads = NesoniClip(reads, fqread)
+        string reads = getNesoniReads(orderedList)
+        string[] clippedFqReads = NesoniClip(fqread, reads, orderedList)
+
+        if(star) {
+
+            string bamFile = mapSTAR(fqread, genomeIndex, clippedFqReads, clippedFqReads) 
+            bamsList.add(bamFile)
+        }
     }
+
+    if(star && !clip) {
+        string[] reads = getSTARreads(orderedList)
+        string bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
+        bamsList.add(bamFile)
+    }
+}
 #------------------------------
-# STAR alignment 
+# BAM processing
 #------------------------------
-    if(star) {
-        if(clip) {
-        bamFile = mapSTAR(genomeIndex, nesoniReads, fqread) 
-    }
-    else {
-        string reads = getSTARreads(getList)
-        bamFile = mapSTAR(genomeIndex, reads, fqread) 
-    }
-    }
-#----------------------------------------------------------------------
-# piacrd secssion for bam file preprocessing for RNA-SeQC report
-#----------------------------------------------------------------------
+string[] allReadsFiles
+
+for(string bamFile : bamsList) {
     if(prePro) {
-        # put newly generated *sorted.bam files into preqcBamFiles directory
-        string sortedName = preqcBamFiles+"/"+bamFile.baseName().swapExt("Aligned.out.bam", "sorted.bam")
-        task(sortedName <- bamFile) {
-            sys picard SortSam TMP_DIR=tmp/ \
-                               VALIDATION_STRINGENCY=LENIENT \
-                               INPUT=$bamFile \
-                               OUTPUT=$sortedName \
-                               SORT_ORDER=coordinate
-        }
-        string reorderedName = sortedName.swapExt(".bam", "_reordered.bam")
-        task(reorderedName <- sortedName) {
-            sys picard ReorderSam TMP_DIR=tmp/ \
-                                  VALIDATION_STRINGENCY=LENIENT \
-                                  INPUT=$sortedName \
-                                  OUTPUT=$reorderedName \
-                                  REFERENCE=$fastaRef
-        }
-        string mdupsName = reorderedName.swapExt(".bam", "_marked_dups.bam")
-        string metricsName = reorderedName.swapExt(".bam", "_marked_dups.metrics")
-        task(mdupsName <- reorderedName) {
-            sys picard MarkDuplicates TMP_DIR=tmp/ \
-                                      VALIDATION_STRINGENCY=LENIENT \
-                                      CREATE_INDEX=true \
-                                      INPUT=$reorderedName \
-                                      OUTPUT=$mdupsName \
-                                      METRICS_FILE=$metricsName
-        }
+        string testCheck = getPrePro(bamFile, fastaRef)
     }
-#------------------------------
-# featureCount
-#------------------------------
+
     if(count) {
-        string reverseFeature = featureReverse+"/"+fqread.baseName().swapExt("_Aligned.out.bam", ".txt")
-        task (reverseFeature <- bamFile) {
-            sys featureCounts -a $gtfFile \
-                              -o $reverseFeature \
-                              $bamFile \
-                              -s 2
-        }
-        string noFeature = featureNo+"/"+fqread.baseName().swapExt("_Aligned.out.bam", ".txt")
-        task (noFeature <- bamFile) {
-            sys featureCounts -a $gtfFile \
-                              -o $noFeature \
-                              $bamFile \
-                              -s 0
-        }
+        string readsFile = getReadsCount(bamFile, gtfFile)
+        allReadsFiles.add(readsFile)
     }
 }
 #----------------------------------------------------------------------------------------------------
@@ -213,12 +171,10 @@ string{} getUniqueNames(string fqDir) {
     }
     return uniqueNames
 }
-#----------------------------------------------------------------------------------------------------
-# Dev section
-#----------------------------------------------------------------------------------------------------
+
 string[] getOrderedList(string[] readsList) {
 
-    string[] orederedReadsList
+    string[] orderedReadsList
     bool checkPair
     int getListSize = readsList.size()-1
     
@@ -231,40 +187,64 @@ string[] getOrderedList(string[] readsList) {
         string rTwo = "R2"+lastBit
         string pairedEnd = singleRead.swapExt(rOne, rTwo)
         
-        orederedReadsList.add(singleRead)
+        orderedReadsList.add(singleRead)
         checkPair = pairedEnd.isFile()
-        if(checkPair) orederedReadsList.add(pairedEnd)
+        if(checkPair) orderedReadsList.add(pairedEnd)
     }
-    orederedReadsList.add(checkPair)
-    return orederedList
+    orderedReadsList.add(checkPair)
+    return orderedReadsList
 }
 
-string getSTARreadsTest(string[] readsList) {
-
-    string[] listR1
-    string[] listR2
-    
-    string boolItem = readsList.pop()
+string[] getSTARreads(string[] orderedList) {
+      
+    string boolItem = orderedList.pop()
     bool checkPair = boolItem.parseBool()
-    int getListSize = readsList.size()
-    
-    for(string read : readsList) {
-        if(checkPair){
-            string checkR1 = read.lastIndexOf("R1")
-            if(checkR1 != -1) listR1.add(read)
-            else listR2.add(read)
-        }
-        else{ 
-            if(getListSize == 1) return readsList[0]
-        #else listR1.add(read)
+
+    if(checkPair) {
+        int listSize = orderedList.size()-1
+        string[] listR2
+
+        for (int i=listSize; i > 0; i -= 2) {
+            string read = orderedList.remove(orderedList[i])
+            listR2.add(read)
         }
         
-        if(listR2) {
-            string read1 = listR1.join(",")
-            string read2 = listR2.join(",")
-        return "$read1 $read2"
+        listR2 = listR2.reverse()
+        string read1 = orderedList.join(",")
+        string read2 = listR2.join(",")
+        return [read1, read2]
+    }
+    else {
+        string read1 = orderedList.join(",")
+        return [read1]
     }
 }
+
+string mapSTAR(string rootName, string genomeIndex, string[] listOfReads, string[] rawReads) {
+
+    string rootBase = rootName.baseName()
+    string preFix = bamFiles+"/"+rootBase+"_"
+    string bamOut = preFix+"Aligned.out.bam"
+    string reads = listOfReads.join(" ")
+    
+    task(bamOut <- rawReads) {
+        sys STAR --runThreadN 28 \
+                 --genomeDir $genomeIndex \
+                 --outSAMtype BAM Unsorted \
+                 --outSAMunmapped Within \
+                 --outSAMattrRGline ID:001 CN:Unknown DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$rootBase \
+                 --readFilesCommand zcat \
+                 --readFilesIn $reads \
+                 --outFileNamePrefix $preFix
+    }
+    wait
+    # you can remove wait statement and reduce number of threads
+    # however this will run all your fastq files in parallel
+    # doing this I find a bit impractical on our server because of
+    # limited RAM - only 128 Gb
+    return bamOut
+}
+
 
 string getNesoniReads(string[] orderedList) {
 
@@ -291,153 +271,89 @@ string getNesoniReads(string[] orderedList) {
     string nesoniReads = orderedList.join(" ")
     return nesoniReads
 }
-#----------------------------------------------------------------------------------------------------
-string getSTARreads(string[] readsList) {
 
-string[] listR1, listR2, laneList
-string read1
-string read2
-string lanes
-string preFix
-bool checkPair
-int getListSize = readsList.size()-1
+string[] NesoniClip(string rootName, string nesoniReads, string[] rawReads) {
 
-for(int i : range(0,getListSize)) {
-# get fastq reads and get it pair 
-string singleRead = readsList[i]
-string[] getLastBit = singleRead.split("R1")
-string lastBit = getLastBit.pop()
-string rOne = "R1"+lastBit
-string rTwo = "R2"+lastBit
-string pairedEnd = singleRead.swapExt(rOne, rTwo)
-checkPair = pairedEnd.isFile()
-# exctract lanes information from the file name
-#string[] tmpLane = singleRead.split("_")
-#string tmpLane2 = tmpLane.pop()
-#string getLane = tmpLane.pop()
-listR1.add(singleRead)
-listR2.add(pairedEnd)
-}
-if(checkPair){
-#laneList.add(getLane)
-# concatenate for STAR usage 
-read1 = listR1.join(",")
-read2 = listR2.join(",")
-#lanes = laneList.join(",")
-return "$read1 $read2"
-}
-else{
-read1 = listR1.join(",")
-return read1
-}
-}
-
-string mapSTAR(string genomeIndex, string reads, string rootName) {
-
-string rootBase = rootName.baseName()
-string preFix = bamFiles+"/"+rootBase+"_"
-string bamOut = preFix+"Aligned.out.bam"
-
-task(bamOut <- reads) {
-sys STAR --runThreadN 24 \
---genomeDir $genomeIndex \
---outSAMtype BAM Unsorted \
---outSAMunmapped Within \
---outSAMattrRGline ID:001 CN:Unknown DS:RNA-seq PL:ILLUMINA PM:MiSeq SM:$rootBase \
---readFilesCommand zcat \
---readFilesIn $reads \
---outFileNamePrefix $preFix
-}
-wait
-# you can remove wait statement and reduce number of threads
-# however this will run all your fastq files in parallel
-# doing this I find a bit impractical on our server because of
-# limited RAM - only 128 Gb
-return bamOut
-}
-
-string[] breakIntoDep(string reads) {
-
-string[] splitList = reads.split(" ")
-string checkLength = splitList.size() 
-string read1 = splitList[0]
-string checkLanes = read1.lastIndexOf(",")
-
-if(checkLength > 1){
-if(checkLanes != -1){
-return splitList
-}
-else{
-string[] read = read1.split(",")
-return read
-}
-}
-else{
-return splitList
-}
-
-}
-
-string[] getNesoniReads(string[] readsList) {
-
-    string[] nesoniList
-    string[] items
-    bool checkPair 
-    int getListSize = readsList.size()
+    string preFix = clippedFastq+"/"+rootName.baseName()
+    string outfq = preFix+"_single.fq.gz"
+    string logFile = preFix+"_log.txt"
     
-    for(int i : range(0,getListSize-1)) {
-        string singleRead = readsList[i]
-        string[] getLastBit = singleRead.split("R1")
-        string lastBit = getLastBit.pop()
-        string rOne = "R1"+lastBit
-        string rTwo = "R2"+lastBit
-        string pairedEnd = singleRead.swapExt(rOne, rTwo)
-        checkPair = pairedEnd.isFile()
-        
-        if(checkPair){
-            nesoniList.add("pairs:")
-            nesoniList.add(singleRead)
-            nesoniList.add(pairedEnd)
+    string[] reads = nesoniReads.split(" ")
+    bool checkPair = reads.has("pairs:")
+
+    if(checkPair) {
+        string outfq1 = preFix+"_R1.fq.gz"
+        string outfq2 = preFix+"_R2.fq.gz"
+        task([outfq, outfq1, outfq2, logFile] <- rawReads){
+            #sys source $HOME/pypyenv/bin/activate
+            sys nesoni clip: --quality 28 \
+                             --out-separate yes \
+                             $preFix \
+                             $nesoniReads
         }
-        else{
-            nesoniList.add("reads:")
-            nesoniList.add(singleRead) 
-        }
+        return [outfq1, outfq2]
     }
-    string reads = nesoniList.join(" ")
-    items.add(reads)
-    items.add(checkPair)
-    return items
+    else {
+        task([outfq, logFile] <- rawReads){
+            #sys source $HOME/pypyenv/bin/activate
+            sys nesoni clip: --quality 28 \
+                             --out-separate yes \
+                             $preFix \
+                             $nesoniReads
+        }
+        return [outfq]
+    }
 }
 
-string NesoniClip(string[] items, string rootName) {
+string getPrePro(string bamFile, string fastaRef){
 
-string reads = items[0]
-bool checkPair = items[1].parseBool()
+    string sortedName = preqcBamFiles+"/"+bamFile.baseName().swapExt("Aligned.out.bam", "sorted.bam")
+    task(sortedName <- bamFile) {
+        sys picard SortSam TMP_DIR=tmp/ \
+                           VALIDATION_STRINGENCY=LENIENT \
+                           INPUT=$bamFile \
+                           OUTPUT=$sortedName \
+                           SORT_ORDER=coordinate
+    }
+    string reorderedName = sortedName.swapExt(".bam", "_reordered.bam")
+    task(reorderedName <- sortedName) {
+        sys picard ReorderSam TMP_DIR=tmp/ \
+                              VALIDATION_STRINGENCY=LENIENT \
+                              INPUT=$sortedName \
+                              OUTPUT=$reorderedName \
+                              REFERENCE=$fastaRef
+    }
+    string mdupsName = reorderedName.swapExt(".bam", "_marked_dups.bam")
+    string metricsName = reorderedName.swapExt(".bam", "_marked_dups.metrics")
+    task(mdupsName <- reorderedName) {
+        sys picard MarkDuplicates TMP_DIR=tmp/ \
+                                  VALIDATION_STRINGENCY=LENIENT \
+                                  CREATE_INDEX=true \
+                                  INPUT=$reorderedName \
+                                  OUTPUT=$mdupsName \
+                                  METRICS_FILE=$metricsName
+    }
+    return "all done"
+}
 
-string preFix = clippedFastq+"/"+rootName.baseName()
-string outfq = preFix+"_single.fq.gz"
-string outfq1 = preFix+"_R1.fq.gz"
-string outfq2 = preFix+"_R2.fq.gz"
-string logFile = preFix+"_log.txt"
+string getReadsCount(string bamFile, string gtfFile) {
 
-if(checkPair) {
-task([outfq, outfq1, outfq2, logFile] <- reads){
-sys  nesoni clip: --quality 28 \
---out-separate yes \
-$preFix \
-$reads
+    string reverseFeature = featureReverse+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+    string reverseSummary = featureReverse+"/"+reverseFeature+".summary"
+    task ([reverseFeature, reverseSummary] <- bamFile) {
+        sys featureCounts -a $gtfFile \
+                          -o $reverseFeature \
+                          $bamFile \
+                          -s 2
+    }
+    string noFeature = featureNo+"/"+bamFile.baseName().swapExt("_Aligned.out.bam", ".txt")
+    string noSummary = featureReverse+"/"+noFeature+".summary"
+    task ([noFeature, noSummary] <- bamFile) {
+        sys featureCounts -a $gtfFile \
+                          -o $noFeature \
+                          $bamFile \
+                          -s 0
+    }
+
+    return reverseFeature
 }
-return "$outfq1 $outfq2"
-}
-else {
-task([outfq, logFile] <- reads){
-sys  nesoni clip: --quality 28 \
---out-separate yes \
-$preFix \
-$reads
-}
-return outfq
-}
-}
-#----------------------------------------------------------------------------------------------------
