@@ -12,7 +12,7 @@ def natural_keys(text):
     '''
     return [ atoi(c) for c in re.split('(\d+)', text) ]
 
-import sys, re, os, argpaser
+import sys, re, os, argparse
 
 parser = argparse.ArgumentParser(description="blah blah")
 
@@ -35,13 +35,22 @@ header = True
 threshold = 1000
 firstSample = True
 
+rootURL = 'http://localhost:60151/load?file=http%3A'
+host = '2F%2Fbioinformatics.erc.monash.edu'
+path = '2Fhome%2Fkirill%2FMichelleMeilak%2FbamFiles'
+igvTemplate = '2F%s&genome=mm10&merge=true&name=%s&locus=%s'
+
 print "<table border=1 frame=void rules=all align=center cellpadding=5px>"
 
 for item in sorted(vcfs, key=natural_keys):
     if item.endswith(".vcf"):
-        vcfFile = open(os.path.join(sys.argv[1], item))
-
-        tmpName = item.split("_")[0]
+        vcfFile = open(os.path.join(vcfFiles, item))
+        #--------------------------------------------------
+        # py magic
+        #--------------------------------------------------
+        #bamFile = open(os.path.join(bamFiles, item.split("_")[0]+"_sorted.bam"))
+        bamFile = item.split("_")[0]+"_sorted.bam"
+        tmpName =item.split("_")[0]
         name = 'Sample-%s' % tmpName
         counter=0
         check=''
@@ -57,9 +66,17 @@ for item in sorted(vcfs, key=natural_keys):
             if not i.startswith("#"):
                 m = re.search("(DP=)([0-9]+)", items[7])
                 depth = int(m.group(2))
+                chrom = items[0]
+                position = int(items[1])
+                upstream = position-200
+                downstream = position+200
+                locus = "%s:%s-%s" % (chrom, upstream, downstream)
+                igvLink = igvTemplate % (bamFile, bamFile, locus)
                 if m and depth > threshold:
                     #print "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (items[0], items[1], items[3], items[4], m.group(0))
-                    check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (items[0], items[1], items[3], items[4], m.group(0))
+                    igv =  '<a href="%s">%s</a>' % ('%'.join([rootURL, host, path, igvLink]), position)
+                    #check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (items[0], items[1], items[3], items[4], m.group(0))
+                    check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (chrom, igv, items[3], items[4], m.group(0))
                     counter+=1
 
         if counter > 0:
