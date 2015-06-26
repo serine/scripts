@@ -102,15 +102,15 @@ if( args.isEmpty() ) {
 #------------------------------
 # BAM generation step
 #------------------------------
-#string[] bamsList
-string bamFile
+string[] bamsList
+#string bamFile
 
 #if( (bamFiles.exists()) && (clip) ) bamsList = bamFiles
 
 string{} uniqueNames = getUniqueNames(fqDir)
 #loop over each key in the map
 for(string fqread : uniqueNames.keys()) {
-# get value for each key and break values into list
+    # get value for each key and break values into list
     string mapValue = uniqueNames{fqread} 
     string[] getList = mapValue.split(",")
     string[] orderedList = getOrderedList(getList)
@@ -119,45 +119,36 @@ for(string fqread : uniqueNames.keys()) {
         string reads = getNesoniReads(orderedList)
         string[] clippedFqReads = NesoniClip(fqread, reads, orderedList)
         
-        if(star) {
-            string bamFile = mapSTAR(fqread, genomeIndex, clippedFqReads, clippedFqReads) 
-            #bamsList.add(bamFile)
-        }
+        #if(star) {
+        #    string bamFile = mapSTAR(fqread, genomeIndex, clippedFqReads, clippedFqReads) 
+        #    bamsList.add(bamFile)
+        #}
     
     }
     
     if(star && !clip) {
         string[] reads = getSTARreads(orderedList)
-        #string bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
-        bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
-        #bamsList.add(bamFile)
-    }
-    
-    if(prePro) {
-        string testCheck = getPrePro(bamFile, fastaRef)
-    }
-    
-    if(count) {
-        string readsFile = getReadsCount(bamFile, gtfFile)
-        #allReadsFiles.add(readsFile)
+        string bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
+        bamsList.add(bamFile)
+        #bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
     }
 }
 
 #------------------------------
 # BAM processing
 #------------------------------
-#string[] allReadsFiles
-#
-#for(string bamFile : bamsList) {
-#        if(prePro) {
-#                string testCheck = getPrePro(bamFile, fastaRef)
-#        }
-#
-#        if(count) {
-#                string readsFile = getReadsCount(bamFile, gtfFile)
-#                allReadsFiles.add(readsFile)
-#        }
-#}
+string[] allReadsFiles
+
+for(string bamFile : bamsList) {
+    if(prePro) {
+        string testCheck = getPrePro(bamFile, fastaRef)
+    }
+
+    if(count) {
+       string readsFile = getReadsCount(bamFile, gtfFile)
+       allReadsFiles.add(readsFile)
+    }
+}
 #----------------------------------------------------------------------------------------------------
 # End
 #----------------------------------------------------------------------------------------------------
@@ -239,7 +230,7 @@ string mapSTAR(string rootName, string genomeIndex, string[] listOfReads, string
     string reads = listOfReads.join(" ")
     
     task(bamOut <- rawReads) {
-        sys STAR --runThreadN 16 \
+        sys STAR --runThreadN 28 \
                  --genomeDir $genomeIndex \
                  --outSAMtype BAM Unsorted \
                  --outSAMunmapped Within \
