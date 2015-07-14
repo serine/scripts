@@ -1,5 +1,0 @@
-int[] test = range(1,10)
-#string[] test = ["one", "two"]
-
-string check = test.removeIdx(2)
-print("$test $check\n")

@@ -40,7 +40,7 @@ host = '2F%2Fbioinformatics.erc.monash.edu'
 path = '2Fhome%2Fkirill%2FMichelleMeilak%2FbamFiles'
 igvTemplate = '2F%s&genome=mm10&merge=true&name=%s&locus=%s'
 
-print "<table border=1 frame=void rules=all align=center cellpadding=5px>"
+print "<table class='vcf' border=1 frame=void rules=all align=center cellpadding=5px>"
 
 for item in sorted(vcfs, key=natural_keys):
     if item.endswith(".vcf"):
@@ -76,7 +76,8 @@ for item in sorted(vcfs, key=natural_keys):
                     #print "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (items[0], items[1], items[3], items[4], m.group(0))
                     igv =  '<a href="%s">%s</a>' % ('%'.join([rootURL, host, path, igvLink]), position)
                     #check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (items[0], items[1], items[3], items[4], m.group(0))
-                    check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (chrom, igv, items[3], items[4], m.group(0))
+                    #check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (chrom, igv, items[3], items[4], m.group(0))
+                    check+="<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n" % (chrom, igv, items[3], items[4], depth)
                     counter+=1
 
         if counter > 0:

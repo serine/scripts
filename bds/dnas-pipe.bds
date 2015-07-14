@@ -1,6 +1,8 @@
 #------------------------------
 # BWA alignment
 #------------------------------
+#
+
 if (bwa == "yes") {
 
     if( (!fqDir.isEmpty()) && (clip == "yes") ) fqDir = clippedFastq
@@ -30,7 +32,6 @@ if (bwa == "yes") {
         }
     }
 }
-
 
 #------------------------------
 # htseq-count 

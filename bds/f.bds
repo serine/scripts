@@ -1,71 +1,8 @@
-#!/home/kirill/.bds/bds
-
-#----------------------------------------------------------------------------------------------------
-#  Map Reads to the reference genome
-#----------------------------------------------------------------------------------------------------
-
-#------------------------------
-#  Serine #MonashFlavour
-#------------------------------
-
-#----------------------------------------------------------------------------------------------------
-#  About rnasPipe.bds
-# - takes a whole directory that contatins fastq files and maps to the reference genome
-# - identifies samples that span different lanes and merges then together during STAR run
-# - takes care of paired end data
-#----------------------------------------------------------------------------------------------------
-
-#------------------------------
-#  Input Parametrs
-#------------------------------
-
-helpUnsorted := true
-
-help General options
-
-//string fqRegex     help optional, provide regex for your common file ending 
-string fqRegex     help select regular expression that resembles your fastq files common ending:
-// fqRegex = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
-//fqRegex = "_L[0-9]{3}_R[0-9].fastq.gz$"
-// fqRegex = "_R[0-9]_[0-9]{3}.fastq.gz$"
-string extn        help optional, specify your files extension e.g fq or fastq.gz
-
-help To aling your reads using STAR
-
-bool star          help flag if you like to align with STAR
-string fqDir       help path to the directory with fastq file                                   
-string genomeIndex help path to the directory with genome index for the coresponding species
-
-help To also count features using featureCounts
-
-bool count                 help flag if you like to count reads with featureCount
-string gtfFile     help path to the directory with gtf file
-
-help To pre process your bam files for RNA-SeQC report 
-
-bool prePro                help flag if you like to preprocess your bam files
-string fastaRef    help path to the reference fasta file
-
-help To get fastqc report
-
-bool fastqc                help flag if you like to run fastQC report on the files
-
-help To adaptor and quality trim your fastq files 
-
-bool clip                  help flag if you like to trim your fastq files before processing further
-
-#------------------------------
-# Default parameters
-#------------------------------
-#if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9]_[0-9]{3}.fastq.gz$"
-if(fqRegex.isEmpty()) fqRegex = "_L[0-9]{3}_R[0-9].fastq.gz$"
-#if(fqRegex.isEmpty()) fqRegex = "_R[0-9]_[0-9]{3}.fastq.gz$"
-if(extn.isEmpty()) extn = "*fastq.gz"
+include "h.bds"
 
 #------------------------------
 # Make directories as required
 #------------------------------
-
 string bamFiles = "bamFiles"
 string preqcBamFiles = "preqcBamFiles"
 string featureNo = "featureNo"
@@ -80,92 +17,7 @@ if((!featureNo.exists()) && (count)) featureNo.mkdir()
 if((!featureReverse.exists()) && (count)) featureReverse.mkdir()
 if((!fastqcReport.exists()) && (fastqc)) fastqcReport.mkdir()
 
-
-#------------------------------
-# Sanity check
-#------------------------------
-if(fastqc) {
-    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
-}
-if(clip) {
-    if(fqDir.isEmpty()) error "Usage: -fqDir /path/to/fastq_reads/"
-}
-if(star) {
-    if(fqDir.isEmpty())  error "Usage: -fqDir /path/to/fastq_reads/"
-    if(genomeIndex.isEmpty())  error "Usage: -genomeIndex /path/to/genome_index/"
-}
-if(count) {
-    if(gtfFile.isEmpty())  error "Usage: -gtfFile /path/to/gtf_file/"
-}
-if(prePro) {
-    if(fastaRef.isEmpty()) error "Usage: -fastaRef /path/to/reference_fasta_file"
-}
-if( args.isEmpty() ) {
-    printHelp()
-    exit(1)
-}
-##------------------------------
-## fastQC report
-##------------------------------
-#        if(fastqc) {
-#                sys module load fastqc
-#                string fastqcFiles = getList.join(" ")
-#                task fastqc -o $fastqcReport -f fastq $fastqcFiles
-#        }
-
-#------------------------------
-# BAM generation step
-#------------------------------
-string[] bamsList
-#string bamFile
-
-#if( (bamFiles.exists()) && (clip) ) bamsList = bamFiles
-
-string{} uniqueNames = getUniqueNames(fqDir)
-#loop over each key in the map
-for(string fqread : uniqueNames.keys()) {
-    # get value for each key and break values into list
-    string mapValue = uniqueNames{fqread} 
-    string[] getList = mapValue.split(",")
-    string[] orderedList = getOrderedList(getList)
-    
-    if(clip) {
-        string reads = getNesoniReads(orderedList)
-        string[] clippedFqReads = NesoniClip(fqread, reads, orderedList)
-        
-        #if(star) {
-        #    string bamFile = mapSTAR(fqread, genomeIndex, clippedFqReads, clippedFqReads) 
-        #    bamsList.add(bamFile)
-        #}
-    
-    }
-    
-    if(star && !clip) {
-        string[] reads = getSTARreads(orderedList)
-        string bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
-        bamsList.add(bamFile)
-        #bamFile = mapSTAR(fqread, genomeIndex, reads, orderedList) 
-    }
-}
-
-#------------------------------
-# BAM processing
-#------------------------------
-string[] allReadsFiles
-
-for(string bamFile : bamsList) {
-    if(prePro) {
-        string testCheck = getPrePro(bamFile, fastaRef)
-    }
-
-    if(count) {
-       string readsFile = getReadsCount(bamFile, gtfFile)
-       allReadsFiles.add(readsFile)
-    }
-}
-#----------------------------------------------------------------------------------------------------
-# End
-#----------------------------------------------------------------------------------------------------
+if(extn.isEmpty()) extn = "*fastq.gz"
 
 #------------------------------
 # Functions
@@ -215,6 +67,7 @@ string[] getSTARreads(string[] orderedList) {
 
     string boolItem = orderedList.pop()
     bool checkPair = boolItem.parseBool()
+	
     
     if(checkPair) {
         int listSize = orderedList.size()-1
@@ -242,7 +95,7 @@ string mapSTAR(string rootName, string genomeIndex, string[] listOfReads, string
     string preFix = bamFiles+"/"+rootBase+"_"
     string bamOut = preFix+"Aligned.out.bam"
     string reads = listOfReads.join(" ")
-    
+ 
     task(bamOut <- rawReads) {
         sys STAR --runThreadN 28 \
                  --genomeDir $genomeIndex \
