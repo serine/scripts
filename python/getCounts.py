@@ -77,8 +77,10 @@ for textFile in listOfFiles:
             # This section is specific for columns name formating
             #-------------------------------------------------------
             #m = re.search('(_LB[0-9]{2})_(S[0-9]+.txt)', textFile)
-            m = re.search('_(S[0-9]+.txt)', textFile)
-            sampleId = textFile.replace(m.group(0), m.group(1))
+            #m = re.search('_(S[0-9]+.txt)', textFile)
+            m = textFile.split('.')[0]
+            sampleId = m
+            #sampleId = textFile.replace(m.group(0), m.group(1))
             # This part is for featureCount
             if line.startswith("E"):
                  splitLine = line.strip().split("\t")
