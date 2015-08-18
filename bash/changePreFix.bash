@@ -35,16 +35,14 @@ for i in $fqFiles;do
   while read -r line || [[ -n $line ]];do
     eval string=($line)
     check=${string[0]}
-    checkAgain=${check%%_*}
     name=${string[1]}
     # chek if file starts with column one item
     if [[ $rootName == $check* ]];then
       # if it does substitute old preFix with new preFix from column two
-      #fileName="${rootName/$check/$name}"
-      fileName="${rootName/$checkAgain/$name}"
+      fileName="${rootName/$check/$name}"
       # make symlink in a current directory
       ln -s $i $fileName
-      #echo $fileName $check $checkAgain $name
+      #echo $fileName $check $name
     fi
     done < "$2"
 done
