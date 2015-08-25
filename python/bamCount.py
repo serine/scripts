@@ -9,5 +9,5 @@ samFile = pysam.AlignmentFile(sys.argv[1], 'rb')
 
 for i in samFile:
     print dir(i)
-    #print i.qname
+    print i.qname, i.query_name
     break
