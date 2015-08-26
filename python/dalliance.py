@@ -15,9 +15,9 @@ htmlTemplate = '''
         maxHeight: 900,  // maximum hight in CSS pixels 
         pageName:     'mouseTwo-holder', // Target element ID
         //----------------------------------------------------------------------------------------------------
-        chr:          '1', // Use the same name you have in your .2bit file
-        viewStart:    56717201,
-        viewEnd:      56815472,
+        chr:          '2', // Use the same name you have in your .2bit file
+        viewStart: 132900815,
+        viewEnd: 132915021,
     
         coordSystem: {
           speciesName: 'Mus musculus',
